@@ -135,6 +135,7 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
     // Deliberate return visible in the narrative; "stays" alone must
     // never make a departed character teleport back into the room.
     scene.sayaka.present = true;
+    if (!turn.sayaka_position) scene.sayaka.position = ctx.scene.location;
   }
   if (turn.sayaka_position && scene.sayaka.present) scene.sayaka.position = turn.sayaka_position;
   if (turn.sayaka_goal) scene.sayaka.goal = turn.sayaka_goal;
