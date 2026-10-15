@@ -19,7 +19,11 @@ export function groundedSharedSceneMove(
   // NOT player movement. A user must actually narrate their own movement.
   const playerSubject = /(?:^|[\s(])(?:나는|난|내가|나도|우리(?:는|가|도)?|둘이(?:서|는)?|같이|함께|사야카를\s*따라|그녀를\s*따라)/;
   const completedMove = /(?:걸어가|걸어왔|걸어나|걸어들어|걸어|걷는다|걷기\s*시작|따라간|따라가|따라왔|나섰|나선다|나왔다|나온다|나간다|들어갔|들어간다|도착했|도착한다|발을\s*들였|건넜|건넌다|이동했|이동한다|뛰어간|뛰어왔)/;
-  if (!playerSubject.test(userText) || !completedMove.test(userText)) return false;
+  // In this roleplay "(공원에 도착한다)" normally narrates the player's
+  // own movement even when they omit "나는". Named third-person Sayaka
+  // actions still cannot be used as proof that the user followed her.
+  const implicitPlayerAction = /(?:^|\n)\s*[(（](?!\s*(?:사야카|그녀|소녀|누군가|다른\s*학생)(?:는|가|의))[^)）]{0,100}(?:도착했|도착한다|걸어가|걸어왔|따라가|따라왔|나왔다|나간다|들어갔|들어간다)[)）]/;
+  if (!(playerSubject.test(userText) || implicitPlayerAction.test(userText)) || !completedMove.test(userText)) return false;
 
   // Explicitly writing only Sayaka's actions doesn't make them true.
   if (/^\s*\(?\s*사야카(?:는|가|를)/.test(userText)
