@@ -39,7 +39,7 @@ describe("v0.2.0 캐릭터 행동 규칙 비교", () => {
   });
 
   it("웹사이트 입력에는 부모 직업, 미래 라벨, 매출 수치를 포함하지 않음", () => {
-    const forbidden = ["야쿠자", "두목", "1조", "300평", "不撓不屈", "異常", "오야붕"];
+    const forbidden = ["야쿠자", "두목", "츤데레", "1조", "300평", "不撓不屈", "異常", "오야붕"];
     for (const term of forbidden) expect(STABLE_INSTRUCTIONS_V020).not.toContain(term);
   });
 
