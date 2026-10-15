@@ -179,6 +179,8 @@ export interface ModelTurn {
 
 export interface TurnContext {
   chatId: string;
+  /** Persisted on the chat: keeps old v0.3.0 conversations on their original behavior. */
+  promptVersion?: string;
   turnIndex: number;
   scene: SceneState;
   relationship: RelationshipState;
