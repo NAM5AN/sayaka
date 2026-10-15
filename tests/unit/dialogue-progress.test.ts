@@ -96,6 +96,12 @@ describe("사용자가 따라갔다는 사실을 임의 확정하지 않는 장�
     expect(groundedSharedSceneMove(user, "동네 서점", segs)).toBe(true);
   });
 
+  it("주어를 생략한 플레이어 지문으로도 실제 동행을 확인한다", () => {
+    const segs = narration("사야카는 공원 입구에 도착한다.");
+    expect(groundedSharedSceneMove("(공원에 도착한다)", "학교 앞 공원", segs)).toBe(true);
+    expect(groundedSharedSceneMove("(사야카는 공원에 도착한다)", "학교 앞 공원", segs)).toBe(false);
+  });
+
   it("사야카가 떠나면 자동 복귀하지 않고 실제 복귀 행동만 복원한다", () => {
     const ctx = ctxFor({ promptVersion: PROMPT_VERSION, userText: "잘 가" });
     const left = applyTurn(ctx, turn({ sayaka_present: "leaves", action_intent: "leave" }), []);
