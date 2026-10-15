@@ -1,3 +1,5 @@
+import { PROMPT_VERSION } from "./canon";
+import { STABLE_INSTRUCTIONS_V020 } from "./prompt-v020";
 import type { SelectedLore } from "./lore";
 import type { PatternReport } from "./patterns";
 import type { Emotion, HistoryMessage, ItemId, ItemLocation, MemoryEntry, RelationshipState, SceneState, TurnContext } from "./types";
@@ -75,6 +77,11 @@ export const STABLE_INSTRUCTIONS = `# 역할
 - disclosure_ids: 이번 대사로 사야카가 실제로 털어놓은 사적인 정보의 id. 참고 정보에 '공개 가능 id' 로 표시된 것만. 없으면 빈 배열.
 - relationship_signals: 이번 사건으로 사야카의 마음이 실제로 움직였을 때만(이유 필수). 대화 횟수나 선물만으로 신뢰(trust)를 올리지 않는다.
 - refusal_reversal_reason: 전에 거절한 것을 이번에 바꾸는 경우에만 그 이유. 아니면 빈 문자열.`;
+
+/** A/B comparison: new v0.2.0 chats use the original behavior tier; old v0.3.0 chats retain theirs. */
+export function selectStableInstructions(promptVersion?: string): string {
+  return promptVersion?.includes("v0.2.0") ? STABLE_INSTRUCTIONS_V020 : STABLE_INSTRUCTIONS;
+}
 
 const EMOTION_KO: Record<Emotion, string> = {
   indifferent: "무심함",
@@ -189,6 +196,7 @@ function loreBlock(lore: SelectedLore[]): string {
 
 export interface BuiltPrompt {
   instructions: string;
+  promptCacheVersion?: string;
   input: { role: "user" | "assistant" | "developer"; content: string }[];
   loreIds: string[];
 }
@@ -231,5 +239,5 @@ export function buildPrompt(params: {
   input.push({ role: "developer", content: dyn.join("\n\n") });
   input.push({ role: "user", content: ctx.userText });
 
-  return { instructions: STABLE_INSTRUCTIONS, input, loreIds: lore.map((l) => l.id) };
+  return { instructions: selectStableInstructions(ctx.promptVersion), input, loreIds: lore.map((l) => l.id), promptCacheVersion: ctx.promptVersion ?? PROMPT_VERSION };
 }
