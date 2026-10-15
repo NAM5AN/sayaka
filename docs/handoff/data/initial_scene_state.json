@@ -1,0 +1,49 @@
+{
+  "chat_id": null,
+  "scene_version": 1,
+  "scenario": "first_meeting_after_school",
+  "time_label": "방과 후",
+  "location": "학교 복도",
+  "stage": {
+    "vase": {
+      "location": "창가",
+      "held_by": null,
+      "has_been_moved": false
+    }
+  },
+  "inventory": {
+    "kinchaku": {
+      "held_by": "sayaka",
+      "contents": [
+        "pocket_watch"
+      ],
+      "open": false
+    },
+    "pocket_watch": {
+      "location": "inside_kinchaku",
+      "visible_to_user": false
+    },
+    "mychew": {
+      "location": "sayaka_personal_items",
+      "visible_to_user": false
+    }
+  },
+  "sayaka": {
+    "goal": "꽃병과 꽃을 살펴본다",
+    "baseline_emotion": "quiet_indifferent",
+    "temporary_emotion": "slightly_wary"
+  },
+  "relation": {
+    "stage": "strangers",
+    "user_is_same_school_student": true,
+    "user_is_same_classmate": "unknown",
+    "user_name": "unknown",
+    "disclosed_lore_ids": []
+  },
+  "memory": {
+    "facts": [],
+    "subjective_impressions": [],
+    "important_events": []
+  },
+  "note": "초기 장면 예시. user_name/반/성격/시선 등 사용자 행동을 임의로 추가하지 않음."
+}

@@ -1,0 +1,91 @@
+{
+  "created_at": "2026-10-15",
+  "source_files_verified": true,
+  "note": "SHA-256 for all archive members except this manifest",
+  "files": {
+    ".env.example": {
+      "sha256": "4298786c0a60d600a7cb3da20d875440557a0abc716e9a43b9328e1c0a6e85f9",
+      "bytes": 584
+    },
+    "00_클로드에게_그대로_전달할_첫메시지.txt": {
+      "sha256": "75934438c13526a2e7c8899118be5244f0fc7519abf52b5070f71bac3f7ba419",
+      "bytes": 4266
+    },
+    "01_PROJECT_BRIEF.md": {
+      "sha256": "851040ea65e9728f0024bd7b7072780a0a12a4cff38e90709216bb29dee05515",
+      "bytes": 5575
+    },
+    "02_CHARACTER_CANON.md": {
+      "sha256": "8596e83570e093dc8cc0ffa245b887af3aedf1a208af6bdc80b70fed2ebb16af",
+      "bytes": 5566
+    },
+    "03_BEHAVIOR_AND_RESPONSE_ENGINE.md": {
+      "sha256": "fcf5252e1db5c571f86b9c768cf79e47ea85bef1483f2570e5ad8cddc7969c2a",
+      "bytes": 9457
+    },
+    "04_SITE_ARCHITECTURE.md": {
+      "sha256": "a7530a122c845834ee3c008ae67fb2d54ddfd6491bf508d9a56de90ec2c45537",
+      "bytes": 6031
+    },
+    "05_MEMORY_MODEL.md": {
+      "sha256": "6bf1a986bd33a63420b04b13573b38b124e368f0b25b03a35a6a383438f559b9",
+      "bytes": 3960
+    },
+    "06_UI_SPEC.md": {
+      "sha256": "109e7eaa5b5bea9604b9318cf27e7638a6d2e52c5d9a2edcdd8991836027f8ed",
+      "bytes": 3012
+    },
+    "07_TEST_PLAN.md": {
+      "sha256": "cf956a7feb137ce75ec0debd7d2cc9e4c144683a0fe958da565012f8aa9f0865",
+      "bytes": 3731
+    },
+    "08_SECURITY_AND_LIMITS.md": {
+      "sha256": "272e027a7d40c4968e99dbfacf94545c73a19ff72abe2425b2329db7e4a3976c",
+      "bytes": 2745
+    },
+    "09_SOURCE_STATUS.md": {
+      "sha256": "77f4161f0044103703d8c8961a7961bed6d681b799c67295f3624a82a7692296",
+      "bytes": 2925
+    },
+    "CLAUDE.md": {
+      "sha256": "64d4059daee7bf7fe40cad62b2fdaa9fce2dd0f99fd41433ee54584c36e5c038",
+      "bytes": 2362
+    },
+    "README_FIRST.md": {
+      "sha256": "ac32d9bea16ed4effb8287f1a9ca38c4d80994e4b75f28397bcc0b8f0bb97a54",
+      "bytes": 3145
+    },
+    "data/character_canon.json": {
+      "sha256": "92fa331231d227203208bdb383ce6859d0cc3ae2b3befa5deea28ca9b0450886",
+      "bytes": 4105
+    },
+    "data/initial_scene_state.json": {
+      "sha256": "348f0bc76363ffe7dacb2855a46a150cb3f36a911a85f7bf5717d046d54f5b1c",
+      "bytes": 1158
+    },
+    "data/lore_registry.json": {
+      "sha256": "390fbde6e640fa7bc70542b8b6682f23a763396b3b996459ccefd29421b129c7",
+      "bytes": 6960
+    },
+    "schemas/response_contract.schema.json": {
+      "sha256": "e9896e4119cdcd8ad9644576be5bf9404f8fccd2c61858d6ce991b4375782310",
+      "bytes": 1807
+    },
+    "source/sayaka_ai_prompt_v0.3.0.txt": {
+      "sha256": "9af7d262ab58c4465e4beb1abc539d8044f88cd4cffbebdf607a582d0c9bae0b",
+      "bytes": 61484
+    },
+    "source/test_transcript_earlier.txt": {
+      "sha256": "f25710c63b17d377743f976dc96cae3433f954a7fac3cc3f84a884a283071b4a",
+      "bytes": 4650
+    },
+    "source/test_transcript_v0.2.0.txt": {
+      "sha256": "86843057018329ddc2e4fb84a12f96a93d959d71f455ee2f30efc07b5e127e57",
+      "bytes": 14568
+    },
+    "tests/scenarios.json": {
+      "sha256": "b3a3bb22da69f29a69d4da18763008dd81ebc8cc2786a96b5dc430d2254c9347",
+      "bytes": 9652
+    }
+  }
+}

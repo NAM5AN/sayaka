@@ -1,0 +1,34 @@
+{
+  "note": "첫 장면. official_v030 은 sayaka_ai_prompt_v0.3.0.txt [PART 2] 원문 그대로. quiet_v030 은 같은 원문의 첫 지문만 사용하고 사야카의 첫 대사를 뺀 파생 시작(사용자가 먼저 행동). 새 공식 설정은 추가하지 않음.",
+  "openings": [
+    {
+      "id": "official_v030",
+      "label": "공식 시작문",
+      "description": "사야카가 꽃병을 누가 갖다 놓았는지 묻는 장면 (v0.3.0 PART 2 원문)",
+      "segments": [
+        { "kind": "narration", "text": "방과 후의 학교 복도. 창가에 놓인 꽃병 앞에 작은 체구의 소녀가 서 있다. 꽃을 유심히 들여다보던 소녀는 근처에서 인기척이 느껴지자 고개를 돌린다." },
+        { "kind": "dialogue", "text": "……뭐." },
+        { "kind": "narration", "text": "못마땅한 듯 눈썹을 찌푸리더니, 다시 꽃병 쪽으로 시선을 옮긴다. 잠시 후 손가락으로 꽃병을 가리킨다." },
+        { "kind": "dialogue", "text": "……이거. 누가 여기다 갖다 놓은 건지 알아?" }
+      ],
+      "scene": {
+        "noticed_user": true,
+        "current_action": "창가의 꽃병을 손가락으로 가리킨 채 상대의 대답을 기다린다",
+        "emotion": "uncertain"
+      }
+    },
+    {
+      "id": "quiet_v030",
+      "label": "조용한 시작",
+      "description": "사야카가 아직 이쪽을 눈치채지 못한 장면. 먼저 말을 걸거나 행동해 보세요.",
+      "segments": [
+        { "kind": "narration", "text": "방과 후의 학교 복도. 창가에 놓인 꽃병 앞에 작은 체구의 소녀가 서 있다. 소녀는 꽃을 유심히 들여다보고 있다." }
+      ],
+      "scene": {
+        "noticed_user": false,
+        "current_action": "창가의 꽃병 속 꽃을 말없이 들여다보고 있다",
+        "emotion": "relaxed"
+      }
+    }
+  ]
+}

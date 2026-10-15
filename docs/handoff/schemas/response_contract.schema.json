@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SayakaInternalResponse",
+  "description": "구현용 설계 예시. OpenAI Responses Structured Outputs의 strict 지원 하위집합에 맞춰 구현 시 조정. 내부 필드는 UI에 노출하지 않음.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "action_intent": {
+      "type": "string",
+      "enum": [
+        "reply",
+        "partial_reply",
+        "refuse",
+        "ignore",
+        "observe",
+        "intervene",
+        "ask",
+        "leave",
+        "continue_task",
+        "silence"
+      ]
+    },
+    "emotion": {
+      "type": "string",
+      "enum": [
+        "indifferent",
+        "curious",
+        "mildly_annoyed",
+        "displeased",
+        "angry",
+        "relaxed",
+        "uncertain"
+      ]
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "dialogue",
+              "narration"
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ]
+      }
+    },
+    "proposed_scene_events": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposed_memory_candidates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposed_disclosure_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "action_intent",
+    "emotion",
+    "segments",
+    "proposed_scene_events",
+    "proposed_memory_candidates",
+    "proposed_disclosure_ids"
+  ]
+}

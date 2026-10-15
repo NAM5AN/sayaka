@@ -1,0 +1,171 @@
+import { z } from "zod";
+import {
+  ACTION_INTENTS,
+  EMOTIONS,
+  ITEM_IDS,
+  ITEM_LOCATIONS,
+  MEMORY_KINDS,
+  MEMORY_TARGETS,
+  REL_AXES,
+  USER_MOVES,
+  type ModelTurn,
+} from "./types";
+import { DISCLOSABLE_IDS } from "./canon";
+
+/**
+ * OpenAI Responses API Structured Outputs (strict) 용 JSON Schema.
+ * strict 모드 제약: 모든 속성 required, additionalProperties:false, 길이/개수 제약은 서버(zod)에서 검사.
+ * 속성 순서 = 생성 순서. '판단 → 행동 선택 → 출력 → 상태 제안' 순으로 둔다.
+ */
+export function turnJsonSchema(): Record<string, unknown> {
+  const str = { type: "string" };
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      user_move: { type: "string", enum: [...USER_MOVES] },
+      situation_read: { ...str, description: "비공개. 지금 확정된 상황과 상대 입력의 성격을 한 문장으로." },
+      sayaka_want: { ...str, description: "비공개. 사야카가 지금 원하는 것 한 문장." },
+      action_intent: { type: "string", enum: [...ACTION_INTENTS] },
+      emotion: { type: "string", enum: [...EMOTIONS] },
+      emotion_cause: { ...str, description: "기본 감정(indifferent)에서 벗어났다면 원인, 아니면 빈 문자열." },
+      segments: {
+        type: "array",
+        description: "사용자에게 보일 대사·지문. 1~5개.",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            kind: { type: "string", enum: ["dialogue", "narration"] },
+            text: str,
+          },
+          required: ["kind", "text"],
+        },
+      },
+      item_changes: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            item: { type: "string", enum: [...ITEM_IDS] },
+            location: { type: "string", enum: [...ITEM_LOCATIONS] },
+            reason: str,
+          },
+          required: ["item", "location", "reason"],
+        },
+      },
+      kinchaku_open: { type: "string", enum: ["unchanged", "opened", "closed"] },
+      sayaka_present: { type: "string", enum: ["stays", "leaves"] },
+      sayaka_position: { ...str, description: "바뀌었으면 새 위치, 아니면 빈 문자열." },
+      sayaka_goal: { ...str, description: "사야카가 하려는 일이 바뀌었으면 새 목표, 아니면 빈 문자열." },
+      memory_candidates: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            kind: { type: "string", enum: [...MEMORY_KINDS] },
+            target: { type: "string", enum: [...MEMORY_TARGETS] },
+            value: { ...str, description: "짧은 값(예: 상대가 밝힌 이름). 없으면 빈 문자열." },
+            text: str,
+          },
+          required: ["kind", "target", "value", "text"],
+        },
+      },
+      disclosure_ids: { type: "array", items: { type: "string", enum: DISCLOSABLE_IDS } },
+      relationship_signals: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            axis: { type: "string", enum: [...REL_AXES] },
+            direction: { type: "string", enum: ["up", "down"] },
+            reason: str,
+          },
+          required: ["axis", "direction", "reason"],
+        },
+      },
+      refusal_reversal_reason: str,
+    },
+    required: [
+      "user_move",
+      "situation_read",
+      "sayaka_want",
+      "action_intent",
+      "emotion",
+      "emotion_cause",
+      "segments",
+      "item_changes",
+      "kinchaku_open",
+      "sayaka_present",
+      "sayaka_position",
+      "sayaka_goal",
+      "memory_candidates",
+      "disclosure_ids",
+      "relationship_signals",
+      "refusal_reversal_reason",
+    ],
+  };
+}
+
+const short = (max: number) => z.string().transform((s) => s.trim().slice(0, max));
+
+export const TurnZ = z.object({
+  user_move: z.enum(USER_MOVES),
+  situation_read: short(300),
+  sayaka_want: short(200),
+  action_intent: z.enum(ACTION_INTENTS),
+  emotion: z.enum(EMOTIONS),
+  emotion_cause: short(200),
+  segments: z
+    .array(z.object({ kind: z.enum(["dialogue", "narration"]), text: z.string().max(1200) }))
+    .max(8),
+  item_changes: z
+    .array(z.object({ item: z.enum(ITEM_IDS), location: z.enum(ITEM_LOCATIONS), reason: short(200) }))
+    .max(6),
+  kinchaku_open: z.enum(["unchanged", "opened", "closed"]),
+  sayaka_present: z.enum(["stays", "leaves"]),
+  sayaka_position: short(60),
+  sayaka_goal: short(80),
+  memory_candidates: z
+    .array(
+      z.object({
+        kind: z.enum(MEMORY_KINDS),
+        target: z.enum(MEMORY_TARGETS),
+        value: short(40),
+        text: short(160),
+      }),
+    )
+    .max(6)
+    .transform((a) => a.slice(0, 4)),
+  disclosure_ids: z.array(z.string()).max(6),
+  relationship_signals: z
+    .array(z.object({ axis: z.enum(REL_AXES), direction: z.enum(["up", "down"]), reason: short(160) }))
+    .max(6),
+  refusal_reversal_reason: short(200),
+});
+
+export class ModelOutputError extends Error {
+  constructor(
+    message: string,
+    public readonly code: "MODEL_BAD_JSON" | "MODEL_SCHEMA_MISMATCH",
+  ) {
+    super(message);
+  }
+}
+
+export function parseModelTurn(raw: string): ModelTurn {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new ModelOutputError("모델 출력이 JSON 이 아님", "MODEL_BAD_JSON");
+  }
+  const r = TurnZ.safeParse(data);
+  if (!r.success) {
+    throw new ModelOutputError(`모델 출력 스키마 불일치: ${r.error.issues.slice(0, 3).map((i) => i.path.join(".")).join(", ")}`, "MODEL_SCHEMA_MISMATCH");
+  }
+  return r.data as ModelTurn;
+}
