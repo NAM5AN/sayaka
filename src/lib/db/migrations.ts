@@ -126,6 +126,18 @@ ALTER TABLE sayaka.disclosures ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sayaka.generation_logs ENABLE ROW LEVEL SECURITY;
 `,
   },
+  {
+    version: "002_app_settings",
+    sql: `
+-- 사이트 설정: 사이트에서 바꾼 비밀번호(scrypt 해시만, 원문 없음), 세션 세대 번호
+CREATE TABLE IF NOT EXISTS sayaka.app_settings (
+  key text PRIMARY KEY,
+  value jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE sayaka.app_settings ENABLE ROW LEVEL SECURITY;
+`,
+  },
 ];
 
 export const MIGRATION_TABLE_SQL = `

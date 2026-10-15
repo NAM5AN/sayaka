@@ -300,6 +300,8 @@ button {
   padding: 6px 12px;
   font-size: 13px;
   color: var(--sumi);
+  white-space: nowrap;
+  flex: none;
 }
 
 .ghost-btn:hover {
@@ -630,7 +632,7 @@ button {
   background: #120f1599;
   display: grid;
   place-items: center;
-  z-index: 40;
+  z-index: 55;
   padding: 16px;
 }
 
@@ -730,7 +732,7 @@ button {
   bottom: 0;
   width: min(440px, 100%);
   background: var(--paper);
-  z-index: 45;
+  z-index: 56;
   box-shadow: -10px 0 40px #0005;
   display: flex;
   flex-direction: column;
@@ -774,6 +776,300 @@ button {
   border-radius: 6px;
   font-size: 12px;
   margin: 0;
+}
+
+/* ───────── 설정: 섹션·버튼 ───────── */
+.set-h {
+  margin: 18px 0 8px;
+  font-size: 13.5px;
+  color: var(--enji);
+}
+
+.btn-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tile-btn {
+  text-align: left;
+  border: 1px solid var(--paper-3);
+  background: #f6f1e7;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-height: 58px;
+}
+
+.tile-btn:hover {
+  border-color: var(--enji);
+}
+
+.tile-btn strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tile-btn span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* ───────── 보기 모달 ───────── */
+.dialog.wide {
+  width: min(760px, 100%);
+  max-height: min(86dvh, 900px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.viewer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--paper-3);
+}
+
+.viewer-head h3 {
+  margin: 0 0 4px;
+}
+
+.viewer-sub {
+  margin: 0 !important;
+  font-size: 13px !important;
+  line-height: 1.55;
+}
+
+.viewer-body {
+  overflow-y: auto;
+  padding: 14px 22px 24px;
+  font-size: 14px;
+}
+
+.viewer-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #e2dacb;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.v-sections {
+  display: grid;
+  gap: 4px;
+}
+
+.v-section {
+  padding: 10px 0 12px;
+  border-bottom: 1px solid var(--paper-3);
+}
+
+.v-section:last-child {
+  border-bottom: 0;
+}
+
+.v-section h4,
+.v-text h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--enji);
+}
+
+.v-text h4 {
+  margin-top: 16px;
+}
+
+.v-text p {
+  margin: 0 0 6px;
+  line-height: 1.7;
+}
+
+.v-text p.v-item {
+  padding-left: 12px;
+}
+
+.v-dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.v-row {
+  display: grid;
+  grid-template-columns: 9.5em 1fr;
+  gap: 10px;
+}
+
+.v-row dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.v-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.v-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.v-cards {
+  display: grid;
+  gap: 6px;
+}
+
+.v-card {
+  background: #f3ede2;
+  border: 1px solid var(--paper-3);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.v-muted {
+  color: var(--muted);
+}
+
+.lore-item {
+  border: 1px solid var(--paper-3);
+  border-radius: 8px;
+  background: #f3ede2;
+  margin-bottom: 6px;
+}
+
+.lore-item summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  list-style-position: inside;
+}
+
+.lore-item[open] summary {
+  border-bottom: 1px solid var(--paper-3);
+}
+
+.lore-item .v-dl {
+  padding: 8px 10px 10px;
+}
+
+.lore-id {
+  font-weight: 600;
+}
+
+.lore-send {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.tag {
+  font-size: 11.5px;
+  border-radius: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--paper-3);
+  color: var(--muted);
+}
+
+.tag-approved,
+.tag-approved_worldbuilding_estimate {
+  color: var(--ok);
+  border-color: #4f7a5c66;
+}
+
+.tag-undecided,
+.tag-suggestion {
+  color: var(--warn);
+  border-color: #9a6a1f66;
+}
+
+.opening-sample {
+  font-family: var(--font-story);
+  background: #f3ede2;
+  border-radius: 8px;
+  padding: 12px 14px 4px;
+}
+
+/* ───────── 비밀번호 ───────── */
+.pw-target {
+  border: 0;
+  padding: 0;
+  margin: 0 0 10px;
+  display: flex;
+  gap: 18px;
+  font-size: 14px;
+}
+
+.pw-target label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.field {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.field span {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.field input {
+  width: 100%;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--paper-3);
+  background: #f6f1e7;
+  padding: 0 12px;
+}
+
+.field input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.field-err {
+  color: var(--danger) !important;
+  font-size: 13px !important;
+  margin: -2px 0 10px !important;
+}
+
+@media (max-width: 560px) {
+  .btn-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .v-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .viewer-head,
+  .viewer-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }
 
 /* ───────── 로그인 ───────── */

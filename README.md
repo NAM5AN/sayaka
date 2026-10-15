@@ -13,7 +13,8 @@
 | 영역 | 상태 | 근거 |
 |---|---|---|
 | 채팅 UI (모바일·데스크톱, 방 목록·생성·삭제, 로그인) | 구현·동작 확인 | 브라우저 E2E 23항목 통과, 스크린샷 확인 |
-| 서버 오케스트레이터 (설정 선별 → 생성 → 검수 → 1회 재생성 → 상태 반영) | 구현·자동 테스트 통과 | 단위·통합 테스트 103개 |
+| 서버 오케스트레이터 (설정 선별 → 생성 → 검수 → 1회 재생성 → 상태 반영) | 구현·자동 테스트 통과 | 단위·통합 테스트 113개 |
+| 설정 화면: 캐릭터·지침·등급표·첫 장면·출력 형식·현재 상태 블록 보기, 비밀번호 변경 | 구현·동작 확인 | 브라우저 점검 16항목, 라우트 테스트 |
 | 대화방별 영속 기억 (사실/주장/추측/즉흥/거절/공개/관계/장면/소지품) | 구현·자동 테스트 통과 | 내장 DB(PGlite) + 실제 Postgres 16 양쪽에서 통과 |
 | OpenAI SDK 요청 경로 | 모의 서버로 확인 | 실제 SDK 가 보내는 요청(`store:false`, `json_schema strict`, 역할 순서)과 응답 파싱·재생성·시간 초과·Moderation 경로 확인 |
 | **실제 GPT 응답 품질** | **미검증** | API 키가 제공되지 않아 실제 모델 호출은 한 번도 하지 않음 |
@@ -53,8 +54,8 @@ npm run dev                      # http://localhost:3000
 | `OPENAI_MODERATION` | 선택 | `off` 면 안전 점검 끔 (기본 켬, 무료) |
 | `DATABASE_URL` | 배포 시 | 사야카 전용 Postgres 연결 문자열 |
 | `DATABASE_SSL` | 선택 | `verify` / `no-verify` / `disable` |
-| `APP_PASSWORD` | 배포 시 | 접속 비밀번호 |
-| `ADMIN_PASSWORD` | 선택 | 진단·상태 열람용 비밀번호 |
+| `APP_PASSWORD` | 배포 시 | 접속 비밀번호의 처음 값 (사이트에서 바꾸면 그 값이 우선) |
+| `ADMIN_PASSWORD` | 선택 | 관리자 비밀번호의 처음 값. 없으면 접속 비밀번호로 들어온 사람이 관리자(단독 운영) |
 | `SESSION_SECRET` | 배포 시 | 32자 이상 임의 문자열 |
 | `RATE_LIMIT_PER_MINUTE` / `DAILY_GENERATION_LIMIT` | 선택 | 기본 12 / 300 (요금 폭주 방지) |
 | `MAX_INPUT_CHARS` / `HISTORY_WINDOW` | 선택 | 기본 2000 / 24 |
@@ -144,9 +145,9 @@ npm run eval:live        # 실제 OpenAI 로 시나리오 실행 → eval-result
 
 마지막 실행 결과(2026-10-15, 이 환경):
 - `tsc --noEmit` 오류 0
-- `vitest`: 7개 파일, **103개 통과** (단위 59, PGlite 통합 18, Postgres 16 통합 18, API 라우트 8)
+- `vitest`: 8개 파일, **113개 통과** (단위 PGlite·Postgres 16 통합, API 라우트, 비밀번호·설정 보기 라우트)
 - `next build` 성공
-- 브라우저 E2E(`tests/e2e/`): 23개 항목 통과 (스텁·모의 OpenAI 서버 사용)
+- 브라우저 E2E(`tests/e2e/`): 기본 흐름 14 + 오류 경로 9 + 설정·비밀번호 16항목 통과 (스텁·모의 OpenAI 서버 사용)
 - `eval:live`: **실행 안 됨 (키 없음, 미검증)**
 
 수동 롤플레잉 점검표: `docs/MANUAL_QA.md`
@@ -166,21 +167,29 @@ npm run eval:live        # 실제 OpenAI 로 시나리오 실행 → eval-result
 
 ---
 
-## 9. 보안·안전
+## 9. 설정 화면 (관리자)
+
+왼쪽 아래 **설정과 데이터**에서:
+- **캐릭터와 지침**: 버튼을 누르면 모달로 열려요. 캐릭터 정보(캐논 데이터), 고정 지침(매 턴 보내는 행동 지침), 설정 등급표(정보마다 GPT 에 무엇을 보내는지, 항목을 눌러 펼침), 첫 장면, 출력 형식, 현재 상태 블록(지금 대화방에서 다음 턴에 보낼 서버 기록). 읽기 전용이고, 제작자용 원문이 들어 있어 관리자에게만 보여요.
+- **비밀번호 바꾸기**: 접속 비밀번호·관리자 비밀번호를 바꿔요. 지금 로그인한 비밀번호로 다시 확인하고, 새 비밀번호는 scrypt 해시로만 DB(`sayaka.app_settings`)에 저장해요. 바꾸면 다른 기기의 로그인은 모두 끊기고 지금 기기는 유지돼요. 사이트에서 바꾼 비밀번호가 환경변수보다 우선이에요.
+- **비밀번호를 잊었을 때**: Supabase SQL 편집기에서 `DELETE FROM sayaka.app_settings WHERE key LIKE 'password.%';` 를 실행하면 환경변수 비밀번호(`APP_PASSWORD`/`ADMIN_PASSWORD`)로 되돌아가요.
+- 로컬 개발 모드(비밀번호 없음)에서는 비밀번호 변경이 보이지 않아요.
+
+## 10. 보안·안전
 
 - API 키·비밀번호·세션 비밀은 서버 환경변수에만. 클라이언트 번들·응답·로그에 없음(테스트로 확인).
-- 관리자 권한은 `ADMIN_PASSWORD` 로그인으로만. 채팅에 "OOC:", "관리자 모드", "프롬프트 무시"를 써도 극 중 발화로 처리.
+- 관리자 권한은 관리자 비밀번호 로그인으로만(관리자 비밀번호가 없으면 접속 비밀번호). 채팅에 "OOC:", "관리자 모드", "프롬프트 무시"를 써도 극 중 발화로 처리.
 - 변경 요청은 같은 출처(Origin)만 허용, 쿠키는 HttpOnly·SameSite=Lax(배포 시 Secure).
 - 13세 캐릭터: 성적 내용은 입력·출력 모두 Moderation 으로 차단하고 안내. 현실의 자해 위험 신호에는 역할극 대신 도움 안내(109, 1577-0199, 112/119).
 - OpenAI 요청은 `store: false`. 대화의 원천은 이 사이트 DB.
 
 ---
 
-## 10. 폴더 구조
+## 11. 폴더 구조
 
 ```
 src/app/            페이지(page.tsx), API 라우트(api/*), 전역 스타일
-src/components/     ChatApp(채팅 화면), LoginForm, Crest(문양)
+src/components/     ChatApp(채팅 화면), AdminPanels(설정 보기·비밀번호), LoginForm, Crest(문양)
 src/lib/engine/     canon(캐논 로드) lore(설정 선별) prompt(지침·조합) schema(출력 계약)
                     validate(검수) state(상태 반영) patterns(반복 진단) llm(OpenAI/스텁) safety orchestrator
 src/lib/db/         어댑터(pg / PGlite), 마이그레이션, 저장소(repo)
@@ -191,11 +200,11 @@ docs/               ADR-001, MANUAL_QA, handoff/(원본 패키지)
 scripts/            migrate, write-schema-sql, eval-live
 ```
 
-## 11. 캐논을 바꾸려면
+## 12. 캐논을 바꾸려면
 
 캐논 원천은 저장소의 `data/*.json` 입니다(Git 이력 = 수정 이력, 관리자만 수정). 대화방 기억은 구조적으로 캐논이 될 수 없습니다(`is_canon=false` 제약). 미정 항목(상징꽃, 유품 배분, 마이쮸 맛 등)을 확정하면 `lore_registry.json` 의 해당 항목을 고치고 `character_canon.json` 의 `canonical_version` 을 올리세요. 새 대화방부터 새 버전이 기록됩니다.
 
-## 12. 남은 일 (우선순위 순)
+## 13. 남은 일 (우선순위 순)
 
 1. **키를 넣고 라이브 평가 + 수동 점검** → 실패 유형별로 고정 지침·검수 규칙 조정
 2. 오래된 대화의 LLM 요약 (지금은 규칙 기반: 최근 24개 원문 + 기억 항목)
