@@ -32,8 +32,13 @@ export function groundedSharedSceneMove(
 
   // A destination is confirmed by a place name and an arrival/entry, not
   // the intention to head there. School gate and park are distinct scenes.
-  const locations = ["공원", "교실", "운동장", "도서관", "매점", "카페", "정문", "교문", "출입구", "거리", "골목", "가게", "저택", "집", "복도"];
-  const destination = locations.find((word) => next.includes(word));
+  // No closed list of places: the story may move to a bookstore, arcade,
+  // station, friend's home, festival, etc. Match the distinctive place phrase.
+  const placeWords = next.match(/[가-힣A-Za-z]{2,}/g) ?? [];
+  const generic = new Set(["학교", "바로", "근처", "앞쪽", "주변", "안쪽", "바깥", "우리", "동네"]);
+  const distinct = placeWords.filter((w) => !generic.has(w));
+  const destination = distinct.sort((a, b) => b.length - a.length)[0]
+    ?? (next.includes("집") ? "집" : placeWords.sort((a, b) => b.length - a.length)[0]);
   if (!destination || !(narration.includes(destination) || sayakaPosition.includes(destination))) return false;
 
   const arrival = /(?:도착|들어섰|들어서|들어갔|들어간다|나왔|나온다|건넜|건넌다|발을\s*들였|안에\s*섰|입구에\s*섰|앞에\s*섰)/;
