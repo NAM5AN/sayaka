@@ -90,6 +90,12 @@ describe("사용자가 따라갔다는 사실을 임의 확정하지 않는 장�
     expect(r.newMemories.some((x) => x.kind === "observed_event" && x.text.includes("공원"))).toBe(true);
   });
 
+  it("서점·게임센터 등 정해진 목록 밖의 장소로도 실제 동행하면 이동할 수 있다", () => {
+    const user = "(나는 사야카와 함께 서점까지 걸어가 도착한다.)";
+    const segs = narration("사야카는 서점 입구에 도착한다.");
+    expect(groundedSharedSceneMove(user, "동네 서점", segs)).toBe(true);
+  });
+
   it("사야카가 떠나면 자동 복귀하지 않고 실제 복귀 행동만 복원한다", () => {
     const ctx = ctxFor({ promptVersion: PROMPT_VERSION, userText: "잘 가" });
     const left = applyTurn(ctx, turn({ sayaka_present: "leaves", action_intent: "leave" }), []);
