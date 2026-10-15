@@ -83,7 +83,7 @@ export function loadConfig(): AppConfig {
       model: str("OPENAI_MODEL"),
       reasoningEffort: effort && REASONING_EFFORTS.has(effort) ? effort : null,
       temperature: num("OPENAI_TEMPERATURE"),
-      maxOutputTokens: int("OPENAI_MAX_OUTPUT_TOKENS", 2500, 300, 16000),
+      maxOutputTokens: int("OPENAI_MAX_OUTPUT_TOKENS", 4000, 300, 16000),
       timeoutMs: int("OPENAI_TIMEOUT_MS", 45000, 5000, 120000),
       moderation: str("OPENAI_MODERATION") !== "off",
     },
