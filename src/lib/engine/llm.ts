@@ -57,7 +57,7 @@ export function createOpenAiClient(cfg: AppConfig): LlmClient {
           ...(cfg.ai.reasoningEffort ? { reasoning: { effort: cfg.ai.reasoningEffort as "low" } } : {}),
           ...(cfg.ai.temperature !== null ? { temperature: cfg.ai.temperature } : {}),
           safety_identifier: safetyId,
-          prompt_cache_key: `sayaka-${PROMPT_VERSION}`,
+          prompt_cache_key: `sayaka-${prompt.promptCacheVersion ?? PROMPT_VERSION}`,
         });
 
         for (const item of resp.output ?? []) {
