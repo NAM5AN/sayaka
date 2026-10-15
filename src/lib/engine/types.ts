@@ -171,6 +171,8 @@ export interface ModelTurn {
   sayaka_present: "stays" | "leaves";
   sayaka_position: string;
   sayaka_goal: string;
+  /** Shared location changes only after both characters actually move. */
+  scene_location?: string;
   memory_candidates: { kind: MemoryKind; target: MemoryTarget; value: string; text: string }[];
   disclosure_ids: string[];
   relationship_signals: { axis: RelAxis; direction: "up" | "down"; reason: string }[];
