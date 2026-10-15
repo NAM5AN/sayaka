@@ -3,7 +3,7 @@ import canonJson from "../../../data/character_canon.json";
 import openingsJson from "../../../data/openings.json";
 import type { Emotion, SceneState, Segment, RelationshipState } from "./types";
 
-export const PROMPT_VERSION = "web-0.1.0+v0.3.0";
+export const PROMPT_VERSION = "web-0.1.0+v0.2.0-compare";
 export const CHARACTER_VERSION: string = (canonJson as { canonical_version: string }).canonical_version;
 
 export type Tier = "A" | "B" | "C" | "D";
