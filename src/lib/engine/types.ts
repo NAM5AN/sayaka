@@ -179,6 +179,8 @@ export interface ModelTurn {
 
 export interface TurnContext {
   chatId: string;
+  /** Stored per chat: old v0.3.0 chats keep their initial behavioral prompt. */
+  promptVersion?: string;
   turnIndex: number;
   scene: SceneState;
   relationship: RelationshipState;
