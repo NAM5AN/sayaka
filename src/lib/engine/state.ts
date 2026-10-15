@@ -1,5 +1,6 @@
 import { DISCLOSABLE_IDS, LEAK_GUARDS, loreById } from "./canon";
 import { dialogueText, allText } from "./format";
+import { groundedSharedSceneMove, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
 import type {
   ItemId,
   ItemLocation,
@@ -53,10 +54,17 @@ export function userGaveBack(userText: string): boolean {
   return /돌려\s?준|돌려줬|돌려\s?줄|돌려\s?드|건넨다|건네준|건네줬|내민다|여기\s?있어/.test(userText);
 }
 
-function stageFor(rel: RelationshipState, turnIndex: number): RelationshipStage {
+function stageFor(rel: RelationshipState, turnIndex: number, pluginFidelity: boolean): RelationshipStage {
   if (rel.trust >= 4) return "trusted";
   if (rel.trust >= 2) return "friendly";
-  if (rel.trust >= 1 || turnIndex >= 8) return "acquainted";
+  // The plugin-fidelity branch never upgrades familiarity merely from turn count.
+  // A known name or a witnessed relaxation of boundaries is an actual event.
+  const witnessedConnection = rel.user_name !== null
+    || rel.history.some((event) =>
+      (event.axis === "wariness" && event.delta < 0) ||
+      (event.axis === "curiosity" && event.delta > 0)
+    );
+  if (rel.trust >= 1 || (pluginFidelity ? witnessedConnection : turnIndex >= 8)) return "acquainted";
   return "strangers";
 }
 
@@ -70,8 +78,12 @@ function tokens(s: string): string[] {
 }
 
 /** user_claim 이 실제 사용자 입력에 근거하는지 (지어낸 사용자 정보 방지) */
-export function claimGrounded(claim: { value: string; text: string }, userText: string): boolean {
+export function claimGrounded(claim: { value: string; text: string; target?: string }, userText: string): boolean {
   const u = userText.toLowerCase();
+  // A first-person statement of affection is a *user claim*, not evidence
+  // that Sayaka returns the feeling or that trust has increased.
+  const explicitUserLike = /(?:나는|난|내가|저는|전|제가)\s*(?:사야카|너|널|네가|니가)(?:를|이|가)?\s*(?:좋아|마음에\s*들|호감)/.test(u);
+  if (claim.target === "user_other" && explicitUserLike && /좋아|호감|마음/.test(claim.text + " " + claim.value)) return true;
   if (claim.value) {
     const v = claim.value.trim().toLowerCase();
     if (v.length >= 1 && u.includes(v)) return true;
@@ -119,8 +131,10 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   if (turn.sayaka_present === "leaves") {
     scene.sayaka.present = false;
     scene.sayaka.position = "자리를 떠남";
-  } else if (!scene.sayaka.present) {
-    scene.sayaka.present = true; // 다시 마주침
+  } else if (!scene.sayaka.present && sayakaActuallyReturned(segments)) {
+    // Deliberate return visible in the narrative; "stays" alone must
+    // never make a departed character teleport back into the room.
+    scene.sayaka.present = true;
   }
   if (turn.sayaka_position && scene.sayaka.present) scene.sayaka.position = turn.sayaka_position;
   if (turn.sayaka_goal) scene.sayaka.goal = turn.sayaka_goal;
@@ -129,6 +143,18 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   }
   const narr = segments.filter((s) => s.kind === "narration").map((s) => s.text);
   if (narr.length) scene.sayaka.current_action = narr[narr.length - 1].slice(0, 120);
+
+  let confirmedSharedMove = false;
+  const proposedLocation = turn.scene_location?.trim() ?? "";
+  if (proposedLocation && proposedLocation !== ctx.scene.location) {
+    if (groundedSharedSceneMove(ctx.userText, proposedLocation, segments, turn.sayaka_position)) {
+      scene.location = proposedLocation;
+      scene.sayaka.position = turn.sayaka_position || proposedLocation;
+      confirmedSharedMove = true;
+    } else {
+      corrections.push("공유 장소 변경 거부: 상대와 사야카의 실제 동행·도착 근거가 없음");
+    }
+  }
 
   // --- 장면: 킨차쿠 열림 ---
   if (turn.kinchaku_open === "opened") scene.kinchaku_open = true;
@@ -185,6 +211,21 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
       continue;
     }
     let delta = sig.direction === "up" ? 1 : -1;
+    const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
+    if (pluginFidelity && userForcesSayakaState(ctx.userText) &&
+      (sig.axis === "trust" || (sig.axis === "wariness" && delta < 0) || (sig.axis === "curiosity" && delta > 0))) {
+      corrections.push("관계 변경 거부: 상대가 사야카의 감정·신뢰를 직접 지정한 입력");
+      continue;
+    }
+    if (pluginFidelity && sig.axis === "trust" && delta > 0) {
+      // A meaningful shared event must be visible in the player's message;
+      // a model-written explanation by itself cannot mint trust.
+      const sharedExperience = /도와|도움|구해|챙겨|돌려주|지켜줬|함께\s*걸|같이\s*걷|함께\s*도착|같이\s*도착|함께\s*만들/.test(ctx.userText);
+      if (!sharedExperience) {
+        corrections.push("관계 trust: 함께 겪은 사건이 아닌 모델 설명만으로는 신뢰를 올릴 수 없음");
+        continue;
+      }
+    }
     if (sig.axis === "trust" && delta > 0) {
       if (t - rel.last_trust_up_turn < 6) {
         corrections.push("관계 trust: 최근에 이미 올랐음(6턴 이내) → 보류");
@@ -249,7 +290,29 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
       corrections.push("기억 후보에 비공개 단어 포함 → 거부");
       continue;
     }
+    if (userForcesSayakaState(ctx.userText) && mc.kind === "observed_event" &&
+      /사야카.{0,50}(?:고백|사랑|호감도|친밀|좋아하게)/.test(text)) {
+      corrections.push("기억 후보 거부: 상대가 사야카의 감정을 일방적으로 확정함");
+      continue;
+    }
     newMemories.push({ kind: mc.kind, target: mc.target, value: mc.value, text });
+  }
+
+  // Actual first-person statements are remembered even when a model
+  // proposes an over-paraphrased user_claim that fails its source match.
+  const actualLiking = /(?:나는|난|내가|저는|전|제가)\s*(?:사야카|너|널|네가|니가)(?:를|이|가)?\s*좋아/.test(ctx.userText);
+  const likingClaimText = "(상대 주장) 자신이 사야카를 좋아한다고 말했다.";
+  if (actualLiking && !ctx.memories.some((m) => m.kind === "user_claim" && m.text === likingClaimText)
+      && !newMemories.some((m) => m.kind === "user_claim" && /사야카.{0,15}좋아|좋아.{0,15}사야카/.test(m.text))) {
+    newMemories.push({ kind: "user_claim", target: "user_other", value: "좋아한다고 주장", text: likingClaimText });
+  }
+
+  if (confirmedSharedMove) {
+    const description = "상대와 사야카가 " + scene.location + "에 함께 도착했다.";
+    if (!ctx.memories.some((m) => m.kind === "observed_event" && m.text === description)
+        && !newMemories.some((m) => m.kind === "observed_event" && m.text === description)) {
+      newMemories.push({ kind: "observed_event", target: "event", value: "", text: description });
+    }
   }
 
   // 거절 번복 이유가 있으면 해당 거절 해제
@@ -284,6 +347,6 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
     newDisclosures.push(id);
   }
 
-  rel.stage = stageFor(rel, t);
+  rel.stage = stageFor(rel, t, ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false);
   return { scene, relationship: rel, newMemories, deactivateMemoryIds, newDisclosures, corrections };
 }
