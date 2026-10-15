@@ -23,7 +23,7 @@ describe("새 사야카 엔진의 채팅 DB 연속성", () => {
     const { db, service, repo } = await makeService({ llm });
     dbs.push(db);
     const created = await service.createChat("integration-user", "quiet_v030");
-    expect(created.chat.promptVersion).toBe(PROMPT_VERSION);
+    expect((await repo.getChat("integration-user", created.chat.id))?.prompt_version).toBe(PROMPT_VERSION);
     await service.sendMessage({
       ownerId: "integration-user", chatId: created.chat.id,
       text: "(나는 사야카와 함께 공원까지 걸어가 도착한다.)", clientRequestId: rid(), admin: false,
