@@ -59,6 +59,7 @@ export function turnJsonSchema(): Record<string, unknown> {
       sayaka_present: { type: "string", enum: ["stays", "leaves"] },
       sayaka_position: { ...str, description: "바뀌었으면 새 위치, 아니면 빈 문자열." },
       sayaka_goal: { ...str, description: "사야카가 하려는 일이 바뀌었으면 새 목표, 아니면 빈 문자열." },
+      scene_location: { ...str, description: "상대와 사야카가 함께 이동해 공유 장면의 위치가 바뀐 경우 새 장소. 제안하거나 준비만 한 상태, 사야카 혼자 이동한 경우 빈 문자열. 상대의 이동을 임의 확정하지 말 것." },
       memory_candidates: {
         type: "array",
         items: {
@@ -102,6 +103,7 @@ export function turnJsonSchema(): Record<string, unknown> {
       "sayaka_present",
       "sayaka_position",
       "sayaka_goal",
+      "scene_location",
       "memory_candidates",
       "disclosure_ids",
       "relationship_signals",
@@ -129,6 +131,7 @@ export const TurnZ = z.object({
   sayaka_present: z.enum(["stays", "leaves"]),
   sayaka_position: short(60),
   sayaka_goal: short(80),
+  scene_location: short(80).default(""),
   memory_candidates: z
     .array(
       z.object({
