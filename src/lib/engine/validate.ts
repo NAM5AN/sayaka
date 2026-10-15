@@ -213,9 +213,19 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
     if (lastReplies.length === 2 && lastReplies.every((m) => flowerTurn(m.body)) && flowerTurn(narration) && !/꽃|꽃병|화단/.test(user)) {
       issues.push({ code: "stale_scene", severity: "retry", fix: "이번 사용자 발언을 새로운 사건으로 읽어라. 꽃병에 시선을 돌리던 습관을 그대로 재연하지 말고 현재 상황에 맞는 다른 반응을 선택하라." });
     }
+    const repetitiveExit = (s: string) => /출입구|교문|정문/.test(s) || /공원 (?:갈|가자|간다며|갈 거|갈거)/.test(s);
+    const latest = ctx.history.filter((m) => m.role === "assistant" && m.source === "model").slice(-4);
+    const lastThreeStuck = latest.filter((m) => repetitiveExit(m.body)).length >= 3;
+    const userMentionsExit = /출입구|교문|정문|공원|지금 가|갈래|가자|출발/.test(user);
+    if (lastThreeStuck && repetitiveExit(text) && !userMentionsExit) {
+      issues.push({
+        code: "stale_destination_loop", severity: "retry",
+        fix: "사야카가 계속 출입구에서 기다리며 같은 말을 반복하고 있다. 상대가 따라오지 않았다면 상대가 따라왔다고 확정하지 말고, 사야카 자신의 행동·태도·현재 대화의 초점을 바꿔라. 질문이나 행동 수를 인위적으로 늘리지는 않는다.",
+      });
+    }
   }
-  if (text.length > (pluginFidelity ? 1700 : 700)) {
-    issues.push({ code: "too_long", severity: "retry", fix: "너무 길다. 대사 한두 마디와 짧은 지문으로 줄인다." });
+  if (text.length > (pluginFidelity ? 3600 : 700)) {
+    issues.push({ code: "too_long", severity: "retry", fix: "이 장면에 필요 없는 설명을 줄이되 일정한 대사·지문 수나 글자 수에 억지로 맞추지 않는다." });
   }
 
   return issues;
