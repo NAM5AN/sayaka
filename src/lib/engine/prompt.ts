@@ -1,6 +1,7 @@
 import { PROMPT_VERSION } from "./canon";
 import { STABLE_INSTRUCTIONS_V020 } from "./prompt-v020";
 import { STABLE_INSTRUCTIONS_PLUGIN_V020 } from "./prompt-plugin-v020";
+import { FULL_PRIVATE_CANON } from "./private-canon";
 import type { SelectedLore } from "./lore";
 import type { PatternReport } from "./patterns";
 import type { Emotion, HistoryMessage, ItemId, ItemLocation, MemoryEntry, RelationshipState, SceneState, TurnContext } from "./types";
@@ -84,6 +85,16 @@ export function selectStableInstructions(promptVersion?: string): string {
   if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return STABLE_INSTRUCTIONS_PLUGIN_V020;
   if (promptVersion?.includes("v0.2.0")) return STABLE_INSTRUCTIONS_V020;
   return STABLE_INSTRUCTIONS;
+}
+
+/** Server-only instructions. All canonical fields are available to the model,
+ * but information release is still restricted by the character's knowledge.
+ * The private canon is never sent to a player-facing API response.
+ */
+export function selectRuntimeInstructions(promptVersion?: string): string {
+  const behavioral = selectStableInstructions(promptVersion);
+  if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return behavioral + "\n\n" + FULL_PRIVATE_CANON;
+  return behavioral;
 }
 
 const EMOTION_KO: Record<Emotion, string> = {
@@ -252,5 +263,5 @@ export function buildPrompt(params: {
   input.push({ role: "developer", content: dyn.join("\n\n") });
   input.push({ role: "user", content: ctx.userText });
 
-  return { instructions: selectStableInstructions(ctx.promptVersion), input, loreIds: lore.map((l) => l.id), promptCacheVersion: ctx.promptVersion ?? PROMPT_VERSION };
+  return { instructions: selectRuntimeInstructions(ctx.promptVersion), input, loreIds: lore.map((l) => l.id), promptCacheVersion: ctx.promptVersion ?? PROMPT_VERSION };
 }
