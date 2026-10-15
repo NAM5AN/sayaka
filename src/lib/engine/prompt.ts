@@ -1,5 +1,6 @@
 import { PROMPT_VERSION } from "./canon";
 import { STABLE_INSTRUCTIONS_V020 } from "./prompt-v020";
+import { STABLE_INSTRUCTIONS_PLUGIN_V020 } from "./prompt-plugin-v020";
 import type { SelectedLore } from "./lore";
 import type { PatternReport } from "./patterns";
 import type { Emotion, HistoryMessage, ItemId, ItemLocation, MemoryEntry, RelationshipState, SceneState, TurnContext } from "./types";
@@ -80,7 +81,9 @@ export const STABLE_INSTRUCTIONS = `# 역할
 
 /** A/B comparison: new v0.2.0 chats use the original behavior tier; old v0.3.0 chats retain theirs. */
 export function selectStableInstructions(promptVersion?: string): string {
-  return promptVersion?.includes("v0.2.0") ? STABLE_INSTRUCTIONS_V020 : STABLE_INSTRUCTIONS;
+  if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return STABLE_INSTRUCTIONS_PLUGIN_V020;
+  if (promptVersion?.includes("v0.2.0")) return STABLE_INSTRUCTIONS_V020;
+  return STABLE_INSTRUCTIONS;
 }
 
 const EMOTION_KO: Record<Emotion, string> = {
@@ -126,7 +129,7 @@ function level(n: number): string {
   return ["없음", "낮음", "약간", "보통", "높음", "매우 높음"][Math.max(0, Math.min(5, n))];
 }
 
-function sceneBlock(scene: SceneState): string {
+function sceneBlock(scene: SceneState, pluginFidelity = false, turnIndex = 1): string {
   const s = scene.sayaka;
   const items = (Object.keys(scene.items) as ItemId[])
     .map((id) => {
@@ -139,7 +142,11 @@ function sceneBlock(scene: SceneState): string {
     "# 현재 장면 (서버 기록)",
     `- 시간·장소: ${scene.time_label} · ${scene.location}`,
     `- 사야카: ${s.present ? s.position : "자리를 떠난 상태(상대가 따라오거나 다시 마주치는 행동을 하기 전까지는 등장하지 않거나 멀리 있음)"}`,
-    `- 하려던 일: ${s.goal} / 지금 하는 것: ${s.current_action}`,
+    pluginFidelity
+      ? (turnIndex === 1
+        ? `- 첫 장면에서 하던 일: ${s.current_action} (계속할 의무는 없음)`
+        : `- 직전 행동: ${s.current_action} (지난 기록으로, 다음 턴 반복할 의무는 없음)`)
+      : `- 하려던 일: ${s.goal} / 지금 하는 것: ${s.current_action}`,
     `- 지금 감정: ${EMOTION_KO[s.emotion]} / 상대를 알아챘는가: ${s.noticed_user ? "예" : "아직 아님"}`,
     `- 킨차쿠: ${scene.kinchaku_open ? "열려 있음" : "닫혀 있음"}`,
     `- 물건: ${items}`,
@@ -220,7 +227,13 @@ export function buildPrompt(params: {
 
   const dyn: string[] = [];
   if (omitted > 0) dyn.push(`(이전 대화 ${omitted}개는 원문 대신 아래 '이 대화방의 기억'으로 요약되어 있다.)`);
-  dyn.push(sceneBlock(ctx.scene));
+  const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
+  dyn.push(sceneBlock(ctx.scene, pluginFidelity, ctx.turnIndex));
+  if (pluginFidelity) dyn.push(
+    "# 장면의 흐름\n직전 행동은 물리적 연속성을 위한 기록이지 같은 행동을 반복하라는 명령이 아니다. " +
+    "사야카가 지금 눈앞의 학생에게 느끼는 짜증·호기심·의심과 자신의 행동을 다시 선택한다. " +
+    "교류의 여지는 질문뿐 아니라 참견·불평·사소한 행동과 선택에서 생긴다. 질문이나 사건의 숫자를 맞출 필요는 없다."
+  );
   dyn.push(relationshipBlock(ctx.relationship, ctx.turnIndex, ctx.memories));
   dyn.push(memoryBlock(ctx.memories, disclosedTexts));
   const lb = loreBlock(lore);

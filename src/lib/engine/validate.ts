@@ -200,8 +200,21 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
     });
   }
 
-  // 9) 분량
-  if (text.length > 700) {
+  // 9) Preserve the lively back-and-forth rhythm of the original plugin without forcing verbosity.
+  const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
+  if (pluginFidelity) {
+    const plain = dialogue.trim().replace(/[.!?？。\s]/g, "");
+    const hello = /^(?:하이|안녕|안뇽|ㅎㅇ|안녕하세요)[.!?\s]*$/.test(user.trim());
+    if (hello && ctx.turnIndex === 1 && /^(?:하이|안녕|어안녕|응안녕)$/.test(plain) && narration.length < 24) {
+      issues.push({ code: "mechanical_greeting", severity: "retry", fix: "초면 사야카가 단순한 인사 따라하기로 끝나지 않도록 스스로 느끼는 귀찮음·의심·호기심·작은 움직임을 판단하라. 질문을 억지로 붙일 필요는 없다." });
+    }
+    const lastReplies = ctx.history.filter((m) => m.role === "assistant" && m.source === "model").slice(-2);
+    const flowerTurn = (s: string) => /꽃병|꽃잎|꽃 쪽|꽃으로/.test(s) && /시선|돌린|살펴보|바라/.test(s);
+    if (lastReplies.length === 2 && lastReplies.every((m) => flowerTurn(m.body)) && flowerTurn(narration) && !/꽃|꽃병|화단/.test(user)) {
+      issues.push({ code: "stale_scene", severity: "retry", fix: "이번 사용자 발언을 새로운 사건으로 읽어라. 꽃병에 시선을 돌리던 습관을 그대로 재연하지 말고 현재 상황에 맞는 다른 반응을 선택하라." });
+    }
+  }
+  if (text.length > (pluginFidelity ? 1700 : 700)) {
     issues.push({ code: "too_long", severity: "retry", fix: "너무 길다. 대사 한두 마디와 짧은 지문으로 줄인다." });
   }
 

@@ -62,12 +62,15 @@ export interface LoreSelectionInput {
   scene: SceneState;
   relationship: RelationshipState;
   disclosures: Disclosure[];
+  promptVersion?: string;
 }
 
 /** 장면 자체가 주는 주제 (꽃병 앞이면 꽃 등) */
-function sceneTopics(scene: SceneState): string[] {
+function sceneTopics(scene: SceneState, pluginFidelity = false): string[] {
   const t: string[] = [];
-  if (scene.items.vase.location === "windowsill" || scene.items.vase.location === "in_sayaka_hand") t.push("flower");
+  const flowerVisible = scene.items.vase.location === "windowsill" || scene.items.vase.location === "in_sayaka_hand";
+  const flowerStillFocus = /꽃|꽃병|꽃잎|화단/.test(scene.sayaka.goal + " " + scene.sayaka.current_action);
+  if (flowerVisible && (!pluginFidelity || flowerStillFocus)) t.push("flower");
   if (!scene.sayaka.noticed_user) t.push("quiet");
   if (scene.items.pocket_watch.location !== "inside_kinchaku" || scene.kinchaku_open) t.push("watch");
   if (scene.items.mychew.location !== "in_sayaka_bag") t.push("mychew");
@@ -86,8 +89,12 @@ export function selectLore(input: LoreSelectionInput): SelectedLore[] {
   // 대화가 꺼낸 주제(사용자 입력 + 직전 대화)와 장면이 주는 주제를 구분한다.
   // A(관찰 가능)는 장면 주제까지, B·C·D 는 대화가 실제로 꺼낸 주제일 때만.
   const topics = detectTopics([input.userText, ...input.recentTexts]);
-  const sceneAndTalk = new Set([...topics, ...sceneTopics(input.scene)]);
   const userTopics = detectTopics([input.userText]);
+  const pluginFidelity = input.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
+  const sceneAndTalk = new Set([
+    ...(pluginFidelity ? userTopics : topics),
+    ...sceneTopics(input.scene, pluginFidelity),
+  ]);
   const disclosed = new Set(input.disclosures.map((d) => d.lore_id));
   const out: SelectedLore[] = [];
 
@@ -110,7 +117,7 @@ export function selectLore(input: LoreSelectionInput): SelectedLore[] {
         break;
       }
       case "B": {
-        if (disclosed.has(e.id)) {
+        if (disclosed.has(e.id) && e.runtime.send === "gated_fact") {
           out.push({
             id: e.id,
             tier: "B",

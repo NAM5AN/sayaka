@@ -148,8 +148,8 @@ export class SayakaService {
       userText: text,
     };
     const recentTexts = state.history.slice(-2).map((m) => m.body);
-    const lore = selectLore({ userText: text, recentTexts, scene: ctx.scene, relationship: ctx.relationship, disclosures: ctx.disclosures });
-    const patterns = analyzePatterns(ctx.history);
+    const lore = selectLore({ userText: text, recentTexts, scene: ctx.scene, relationship: ctx.relationship, disclosures: ctx.disclosures, promptVersion });
+    const patterns = analyzePatterns(ctx.history, promptVersion);
     const disclosedTexts = ctx.disclosures
       .map((d) => loreById(d.lore_id))
       .filter((e): e is NonNullable<typeof e> => !!e)

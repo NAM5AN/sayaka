@@ -85,13 +85,22 @@ export function claimGrounded(claim: { value: string; text: string }, userText: 
   return ct.some((t) => ut.has(t) || [...ut].some((x) => x.length >= 2 && (t.includes(x) || x.includes(t))));
 }
 
+/** Model-supplied disclosure IDs are untrusted. A mention of a topic alone is not proof of disclosure. */
 function hasEvidence(loreId: string, segments: Segment[]): boolean {
   const e = loreById(loreId);
-  if (!e) return false;
+  if (!e || e.runtime.send !== "gated_fact") return false;
   const d = dialogueText(segments);
   const words = e.runtime.evidence ?? [];
-  if (!words.length) return d.length > 0;
-  return words.some((w) => d.includes(w));
+  if (!words.length || !words.some((w) => d.includes(w))) return false;
+  const factAssertions: Record<string, RegExp> = {
+    family_father: /(?:아빠|아버지).{0,35}(?:조직|두목|보스|우두머리)|(?:조직|두목|보스).{0,35}(?:아빠|아버지)/,
+    family_mother: /(?:엄마|어머니).{0,35}(?:기품|품위|우아|아가씨|동경)/,
+    friend_wish: /친구.{0,35}(?:사귀|갖고|있었으면|원하|만들|필요)/,
+    school_secret: /(?:등교|학교|아저씨|기사).{0,40}(?:조직|경호|차|태워|데려)|(?:조직|경호).{0,40}(?:등교|학교|아저씨|기사)/,
+    home_mansion: /(?:우리 집|집|저택).{0,35}(?:저택|넓|정원|크|큰|오래된)|(?:정원|저택).{0,25}(?:우리 집|집)/,
+    inherited_items: /(?:부모|아빠|엄마|아버지|어머니).{0,35}(?:물려|유품|선물|받은)|(?:물려받|유품).{0,35}(?:부모|아빠|엄마)/,
+  };
+  return factAssertions[loreId]?.test(d) ?? false;
 }
 
 export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]): ApplyResult {
@@ -115,6 +124,9 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   }
   if (turn.sayaka_position && scene.sayaka.present) scene.sayaka.position = turn.sayaka_position;
   if (turn.sayaka_goal) scene.sayaka.goal = turn.sayaka_goal;
+  else if (ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") && turn.action_intent !== "continue_task" && turn.sayaka_want.trim()) {
+    scene.sayaka.goal = turn.sayaka_want.trim().slice(0, 80);
+  }
   const narr = segments.filter((s) => s.kind === "narration").map((s) => s.text);
   if (narr.length) scene.sayaka.current_action = narr[narr.length - 1].slice(0, 120);
 
@@ -223,7 +235,11 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
     }
     if (mc.kind === "improvised_detail") {
       // 즉흥 발언은 이 방 기억으로만. 대사에 실제로 나온 경우만 기록
-      if (!allText(segments).length) continue;
+      const actualDialogue = dialogueText(segments);
+      if (!mc.value.trim() || !actualDialogue.includes(mc.value.trim())) {
+        corrections.push("즉흥 기억은 실제 사야카 대사에 근거해야 함 → 무시");
+        continue;
+      }
       newMemories.push({ kind: "improvised_detail", target: mc.target, value: mc.value, text });
       continue;
     }
@@ -251,10 +267,13 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   const newDisclosures: string[] = [];
   const already = new Set(ctx.disclosures.map((d) => d.lore_id));
   for (const id of turn.disclosure_ids) {
-    if (!DISCLOSABLE_IDS.includes(id) || already.has(id)) continue;
+    if (!DISCLOSABLE_IDS.includes(id) || already.has(id)) {
+      corrections.push("공개 " + id + ": 공개 대상이 아니거나 이미 기록되어 무시");
+      continue;
+    }
     const e = loreById(id);
-    if (!e) continue;
-    if (e.runtime.send === "gated_fact" && ctx.relationship.trust < (e.runtime.min_trust ?? 5)) {
+    if (!e || e.runtime.send !== "gated_fact") continue;
+    if (ctx.relationship.trust < (e.runtime.min_trust ?? 5)) {
       corrections.push(`공개 ${id}: 신뢰 조건 미충족 → 기록하지 않음`);
       continue;
     }

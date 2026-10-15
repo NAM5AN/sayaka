@@ -31,7 +31,7 @@ export function turnJsonSchema(): Record<string, unknown> {
       emotion_cause: { ...str, description: "기본 감정(indifferent)에서 벗어났다면 원인, 아니면 빈 문자열." },
       segments: {
         type: "array",
-        description: "사용자에게 보일 대사·지문. 1~5개.",
+        description: "사용자에게 보일 대사·지문. 대사와 지문을 상황에 맞게 자연스럽게 교차해 1~12개.",
         items: {
           type: "object",
           additionalProperties: false,
@@ -121,7 +121,7 @@ export const TurnZ = z.object({
   emotion_cause: short(200),
   segments: z
     .array(z.object({ kind: z.enum(["dialogue", "narration"]), text: z.string().max(1200) }))
-    .max(8),
+    .max(12),
   item_changes: z
     .array(z.object({ item: z.enum(ITEM_IDS), location: z.enum(ITEM_LOCATIONS), reason: short(200) }))
     .max(6),

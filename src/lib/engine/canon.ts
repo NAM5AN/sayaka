@@ -3,7 +3,7 @@ import canonJson from "../../../data/character_canon.json";
 import openingsJson from "../../../data/openings.json";
 import type { Emotion, SceneState, Segment, RelationshipState } from "./types";
 
-export const PROMPT_VERSION = "web-0.1.0+v0.2.0-compare";
+export const PROMPT_VERSION = "web-0.1.0+plugin-v0.2.0-fidelity";
 export const CHARACTER_VERSION: string = (canonJson as { canonical_version: string }).canonical_version;
 
 export type Tier = "A" | "B" | "C" | "D";
@@ -50,7 +50,7 @@ export const LEAK_GUARDS: LeakGuards = registry.leak_guards;
 export const LORE_REGISTRY_VERSION = registry.registry_version;
 
 /** 모델이 disclosure_ids 로 제안할 수 있는 B 등급 id */
-export const DISCLOSABLE_IDS: string[] = LORE.filter((e) => e.visibility_tier === "B").map((e) => e.id);
+export const DISCLOSABLE_IDS: string[] = LORE.filter((e) => e.visibility_tier === "B" && e.runtime.send === "gated_fact").map((e) => e.id);
 
 export function loreById(id: string): LoreEntry | undefined {
   return LORE.find((e) => e.id === id);
