@@ -241,6 +241,12 @@ export function buildPrompt(params: {
   const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   dyn.push(sceneBlock(ctx.scene, pluginFidelity, ctx.turnIndex));
   if (pluginFidelity) dyn.push(
+    "# 장소와 동행의 경계\n공유 장면 장소는 사용자와 사야카가 실제로 함께 있는 위치다. 제안만 한 장소로 이동했다고 확정하지 않는다. " +
+    "사야카가 혼자 걸어가면 sayaka_position 또는 sayaka_present만 바꾸고, 상대가 따라왔다고 쓰지 않는다. " +
+    "사용자가 실제 이동했고 사야카도 직접 움직인 경우에만 scene_location을 새 위치로 제안한다. " +
+    "막연히 '공원 갈 거면 가자'를 반복하며 같은 출입구에 머무르지 말고, 사야카가 스스로 진행하거나 포기할 수 있다."
+  );
+  if (pluginFidelity) dyn.push(
     "# 장면의 흐름\n직전 행동은 물리적 연속성을 위한 기록이지 같은 행동을 반복하라는 명령이 아니다. " +
     "사야카가 지금 눈앞의 학생에게 느끼는 짜증·호기심·의심과 자신의 행동을 다시 선택한다. " +
     "교류의 여지는 질문뿐 아니라 참견·불평·사소한 행동과 선택에서 생긴다. 질문이나 사건의 숫자를 맞출 필요는 없다."
