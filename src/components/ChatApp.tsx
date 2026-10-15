@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Crest } from "./Crest";
+import { ConfigViewer, PasswordDialog, VIEWER_BUTTONS, type ViewerKind } from "./AdminPanels";
 
 type Role = "player" | "admin";
 interface Segment {
@@ -49,6 +50,7 @@ interface Status {
   db: { kind: string };
   limits: { maxInputChars: number; perMinute: number; perDay: number };
   openings: { id: string; label: string; description: string }[];
+  passwords: { player: string; admin: string } | null;
 }
 interface ApiErr {
   code: string;
@@ -163,6 +165,11 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
   const [confirmAll, setConfirmAll] = useState(false);
   const [diagOpen, setDiagOpen] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<ViewerKind | null>(null);
+  const [pwOpen, setPwOpen] = useState(false);
+  // Esc 는 맨 위에 열린 창부터 닫는다
+  const layers = useRef({ viewer: false, pw: false });
+  layers.current = { viewer: viewer !== null, pw: pwOpen };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
@@ -249,6 +256,8 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (layers.current.viewer) return setViewer(null);
+      if (layers.current.pw) return setPwOpen(false);
       setNewOpen(false);
       setSettingsOpen(false);
       setStateOpen(false);
@@ -400,7 +409,13 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
             <p className="brand-sub">金子 沙也加</p>
           </div>
         </div>
-        <button className="side-new" onClick={() => setNewOpen(true)}>
+        <button
+          className="side-new"
+          onClick={() => {
+            setDrawer(false);
+            setNewOpen(true);
+          }}
+        >
           + 새 대화
         </button>
         {chats && chats.length === 0 && <p className="side-empty">아직 대화가 없어요.</p>}
@@ -420,7 +435,12 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
                   {relTime(c.updatedAt)}, {c.turnCount}턴
                 </span>
               </button>
-              <button className="chat-del" onClick={() => setConfirmDel(c)} aria-label={`${c.title} 삭제`} title="삭제">
+              <button
+                className="chat-del"
+                onClick={() => {
+                  setDrawer(false);
+                  setConfirmDel(c);
+                }} aria-label={`${c.title} 삭제`} title="삭제">
                 <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M5 7h14M10 11v6M14 11v6M7 7l1 12h8l1-12M9 7V4h6v3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -434,7 +454,13 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
             <span>{conn.text}</span>
           </div>
           {openLocal && <div className="conn">로컬 개발 모드 (비밀번호 없음)</div>}
-          <button className="side-link" onClick={() => setSettingsOpen(true)}>
+          <button
+            className="side-link"
+            onClick={() => {
+              setDrawer(false);
+              setSettingsOpen(true);
+            }}
+          >
             설정과 데이터
           </button>
         </div>
@@ -635,6 +661,40 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
               <dt>사용 한도</dt>
               <dd>{status ? `분당 ${status.limits.perMinute}회, 하루 ${status.limits.perDay}회` : ""}</dd>
             </dl>
+
+            <h4 className="set-h">캐릭터와 지침</h4>
+            {isAdmin ? (
+              <div className="btn-grid">
+                {VIEWER_BUTTONS.map((b) => (
+                  <button key={b.kind} className="tile-btn" onClick={() => setViewer(b.kind)}>
+                    <strong>{b.label}</strong>
+                    <span>{b.hint}</span>
+                  </button>
+                ))}
+                {view && (
+                  <button className="tile-btn" onClick={() => setViewer("preview")}>
+                    <strong>현재 상태 블록</strong>
+                    <span>이 대화방에서 다음에 보낼 내용</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="fineprint">관리자 비밀번호로 로그인하면 볼 수 있어요.</p>
+            )}
+
+            {isAdmin && !openLocal && (
+              <>
+                <h4 className="set-h">비밀번호</h4>
+                <div className="set-row">
+                  <span className="fineprint">접속 비밀번호와 관리자 비밀번호를 바꿀 수 있어요.</span>
+                  <button className="ghost-btn" onClick={() => setPwOpen(true)}>
+                    비밀번호 바꾸기
+                  </button>
+                </div>
+              </>
+            )}
+
+            <h4 className="set-h">데이터</h4>
             <p className="fineprint">
               대화 내용은 이 사이트의 데이터베이스에 저장돼요. 응답을 만들 때는 최근 대화와 현재 상태만 OpenAI API 로 보내고, 응답 저장 옵션(store)은 끈 채로 요청해요. OpenAI 자체의 보관 정책은 별도로 적용돼요. 대화방을 삭제하면 메시지, 기억, 관계 기록이 바로 지워지고 사용량 계산용 숫자만 남아요.
             </p>
@@ -668,6 +728,20 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
       )}
 
       {stateOpen && isAdmin && view?.admin && <StateSheet admin={view.admin} onClose={() => setStateOpen(false)} />}
+
+      {viewer && isAdmin && <ConfigViewer kind={viewer} chatId={view?.chat.id} onClose={() => setViewer(null)} />}
+
+      {pwOpen && isAdmin && (
+        <PasswordDialog
+          sources={status?.passwords ?? null}
+          onClose={() => setPwOpen(false)}
+          onChanged={() => {
+            api<Status>("/api/status")
+              .then(setStatus)
+              .catch(() => undefined);
+          }}
+        />
+      )}
     </div>
   );
 }

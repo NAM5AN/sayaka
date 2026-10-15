@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Db, Queryable } from "./index";
+import type { AuthStore, PasswordRecord, Role } from "../auth";
 import type {
   Disclosure,
   HistoryMessage,
@@ -70,8 +71,45 @@ export function toChatDto(c: ChatRow): ChatSummaryDto {
   };
 }
 
-export class Repo {
+export class Repo implements AuthStore {
   constructor(private readonly db: Db) {}
+
+  // ───────── 사이트 설정 (비밀번호 해시·세션 세대) ─────────
+
+  async getSetting<T>(key: string): Promise<T | null> {
+    const r = await this.db.query<{ value: T }>(`SELECT value FROM sayaka.app_settings WHERE key=$1`, [key]);
+    return r.rows[0]?.value ?? null;
+  }
+
+  async setSetting(key: string, value: unknown): Promise<void> {
+    await this.db.query(
+      `INSERT INTO sayaka.app_settings (key, value, updated_at) VALUES ($1, $2::jsonb, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [key, JSON.stringify(value)],
+    );
+  }
+
+  getPassword(role: Role): Promise<PasswordRecord | null> {
+    return this.getSetting<PasswordRecord>(`password.${role}`);
+  }
+
+  setPassword(role: Role, rec: PasswordRecord): Promise<void> {
+    return this.setSetting(`password.${role}`, rec);
+  }
+
+  async getEpoch(): Promise<number> {
+    const v = await this.getSetting<{ n: number }>("session.epoch");
+    return typeof v?.n === "number" ? v.n : 0;
+  }
+
+  async bumpEpoch(): Promise<number> {
+    const r = await this.db.query<{ value: { n: number } }>(
+      `INSERT INTO sayaka.app_settings (key, value, updated_at) VALUES ('session.epoch', '{"n":1}'::jsonb, now())
+       ON CONFLICT (key) DO UPDATE SET value = jsonb_build_object('n', COALESCE((sayaka.app_settings.value->>'n')::int, 0) + 1), updated_at = now()
+       RETURNING value`,
+    );
+    return Number(r.rows[0]?.value?.n ?? 1);
+  }
 
   async createChat(params: {
     ownerId: string;

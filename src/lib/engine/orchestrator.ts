@@ -133,6 +133,50 @@ export class SayakaService {
     };
   }
 
+  /** 한 턴의 입력 재료: DB 상태 → 문맥, 이번 턴에 보낼 설정, 반복 패턴 진단 */
+  private async prepareTurn(chatId: string, turnCount: number, text: string) {
+    const state = await this.d.repo.loadState(chatId);
+    const ctx: TurnContext = {
+      chatId,
+      turnIndex: turnCount + 1,
+      scene: state.scene,
+      relationship: state.relationship,
+      memories: state.memories,
+      disclosures: state.disclosures,
+      history: state.history,
+      userText: text,
+    };
+    const recentTexts = state.history.slice(-2).map((m) => m.body);
+    const lore = selectLore({ userText: text, recentTexts, scene: ctx.scene, relationship: ctx.relationship, disclosures: ctx.disclosures });
+    const patterns = analyzePatterns(ctx.history);
+    const disclosedTexts = ctx.disclosures
+      .map((d) => loreById(d.lore_id))
+      .filter((e): e is NonNullable<typeof e> => !!e)
+      .map((e) => e.fact);
+    return { ctx, lore, patterns, disclosedTexts };
+  }
+
+  /**
+   * 관리자용 미리보기: 이 대화방에서 다음 턴에 GPT 로 보낼 내용.
+   * 사용자 입력은 아직 없으므로 비워 두고 만든다(입력 주제에 따라 '참고 정보'는 달라질 수 있음).
+   */
+  async previewPrompt(ownerId: string, chatId: string) {
+    const chat = await this.d.repo.getChat(ownerId, chatId);
+    if (!chat) throw new ServiceError("NOT_FOUND", "대화방을 찾을 수 없어요.");
+    const { ctx, lore, patterns, disclosedTexts } = await this.prepareTurn(chatId, chat.turn_count, "");
+    const prompt = buildPrompt({ ctx, lore, patterns, historyWindow: this.d.cfg.limits.historyWindow, disclosedTexts });
+    const developer = prompt.input.find((i) => i.role === "developer")?.content ?? "";
+    const history = prompt.input.filter((i) => i.role !== "developer").slice(0, -1);
+    return {
+      stateBlock: developer,
+      historyCount: history.length,
+      historyTotal: ctx.history.length,
+      lore: lore.map((l) => ({ id: l.id, tier: l.tier, mode: l.mode })),
+      patternNotes: patterns.notes,
+      model: this.d.llm?.model ?? null,
+    };
+  }
+
   async deleteChat(ownerId: string, chatId: string): Promise<void> {
     const ok = await this.d.repo.deleteChat(ownerId, chatId);
     if (!ok) throw new ServiceError("NOT_FOUND", "대화방을 찾을 수 없어요.");
@@ -197,24 +241,7 @@ export class SayakaService {
         }
       }
 
-      const state = await this.d.repo.loadState(chatId);
-      const ctx: TurnContext = {
-        chatId,
-        turnIndex: chat.turn_count + 1,
-        scene: state.scene,
-        relationship: state.relationship,
-        memories: state.memories,
-        disclosures: state.disclosures,
-        history: state.history,
-        userText: text,
-      };
-      const recentTexts = state.history.slice(-2).map((m) => m.body);
-      const lore = selectLore({ userText: text, recentTexts, scene: ctx.scene, relationship: ctx.relationship, disclosures: ctx.disclosures });
-      const patterns = analyzePatterns(ctx.history);
-      const disclosedTexts = ctx.disclosures
-        .map((d) => loreById(d.lore_id))
-        .filter((e): e is NonNullable<typeof e> => !!e)
-        .map((e) => e.fact);
+      const { ctx, lore, patterns, disclosedTexts } = await this.prepareTurn(chatId, chat.turn_count, text);
       const safetyId = createHash("sha256").update(`sayaka:${ownerId}`).digest("hex").slice(0, 32);
 
       let correctionNotes: string[] = [];

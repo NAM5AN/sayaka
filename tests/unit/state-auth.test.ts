@@ -1,7 +1,43 @@
 import { describe, expect, it } from "vitest";
 import { applyTurn, claimGrounded } from "@/lib/engine/state";
-import { createSessionToken, verifySessionToken, passwordMatches, sessionFromCookieValue, readCookie } from "@/lib/auth";
+import {
+  createSessionToken,
+  verifySessionToken,
+  passwordMatches,
+  sessionFromCookieValue,
+  readCookie,
+  hashPassword,
+  verifyPassword,
+  roleForPassword,
+  type AuthStore,
+  type PasswordRecord,
+  type Role,
+} from "@/lib/auth";
 import { ctxFor, turn, testConfig } from "../helpers";
+
+class MemoryAuthStore implements AuthStore {
+  private pw = new Map<Role, PasswordRecord>();
+  private epoch = 0;
+  async getPassword(role: Role) {
+    return this.pw.get(role) ?? null;
+  }
+  async setPassword(role: Role, rec: PasswordRecord) {
+    this.pw.set(role, rec);
+  }
+  async getEpoch() {
+    return this.epoch;
+  }
+  async bumpEpoch() {
+    return ++this.epoch;
+  }
+}
+
+function pwConfig(app: string, admin: string | null) {
+  const c = testConfig();
+  c.isProduction = true;
+  c.auth = { appPassword: app, adminPassword: admin, sessionSecret: "s".repeat(40), openLocalAccess: false };
+  return c;
+}
 
 describe("상태 반영: 물건·장면", () => {
   it("상대가 받았다고 하지 않았으면 with_user → offered_to_user 로 낮춘다", () => {
@@ -118,7 +154,7 @@ describe("인증", () => {
     const forged = Buffer.from(JSON.stringify({ role: "admin", ownerId: "owner", exp: 9999999999 })).toString("base64url");
     expect(verifySessionToken(`${forged}.${s}`, secret)).toBeNull();
     expect(verifySessionToken(`${p}.${s}`, "y".repeat(40))).toBeNull();
-    const old = createSessionToken("admin", secret, Date.now() - 40 * 24 * 3600 * 1000);
+    const old = createSessionToken("admin", secret, 0, Date.now() - 40 * 24 * 3600 * 1000);
     expect(verifySessionToken(old, secret)).toBeNull();
   });
 
@@ -127,13 +163,43 @@ describe("인증", () => {
     expect(passwordMatches("abc", "abd")).toBe(false);
   });
 
-  it("무인증 모드는 production 이 아니고 APP_PASSWORD 가 없을 때만", () => {
+  it("사이트 비밀번호는 scrypt 해시로만 저장되고 검증된다", () => {
+    const rec = hashPassword("새비밀번호-1234");
+    expect(JSON.stringify(rec)).not.toContain("새비밀번호");
+    expect(verifyPassword("새비밀번호-1234", rec)).toBe(true);
+    expect(verifyPassword("새비밀번호-1235", rec)).toBe(false);
+    expect(hashPassword("same").hash).not.toBe(hashPassword("same").hash); // 소금이 다름
+  });
+
+  it("로그인 역할: 사이트 비밀번호가 환경변수보다 우선, 관리자 비밀번호가 없으면 접속 비밀번호가 관리자", async () => {
+    const cfg = pwConfig("env-player", null);
+    const store = new MemoryAuthStore();
+    expect(await roleForPassword(cfg, store, "env-player")).toBe("admin"); // 단독 운영
+    const cfg2 = pwConfig("env-player", "env-admin");
+    expect(await roleForPassword(cfg2, store, "env-player")).toBe("player");
+    expect(await roleForPassword(cfg2, store, "env-admin")).toBe("admin");
+    await store.setPassword("player", hashPassword("site-player"));
+    expect(await roleForPassword(cfg2, store, "env-player")).toBeNull();
+    expect(await roleForPassword(cfg2, store, "site-player")).toBe("player");
+    expect(await roleForPassword(cfg2, store, "")).toBeNull();
+  });
+
+  it("세션 세대가 바뀌면 이전 쿠키는 무효", async () => {
+    const cfg = pwConfig("env-player", null);
+    const store = new MemoryAuthStore();
+    const t = createSessionToken("admin", cfg.auth.sessionSecret!, await store.getEpoch());
+    expect((await sessionFromCookieValue(cfg, store, t))?.role).toBe("admin");
+    await store.bumpEpoch();
+    expect(await sessionFromCookieValue(cfg, store, t)).toBeNull();
+  });
+
+  it("무인증 모드는 production 이 아니고 APP_PASSWORD 가 없을 때만", async () => {
     const local = testConfig();
-    expect(sessionFromCookieValue(local, null)?.role).toBe("admin");
+    expect((await sessionFromCookieValue(local, null, null))?.role).toBe("admin");
     const prod = testConfig();
     prod.isProduction = true;
     prod.auth = { appPassword: null, adminPassword: null, sessionSecret: null, openLocalAccess: false };
-    expect(sessionFromCookieValue(prod, null)).toBeNull();
+    expect(await sessionFromCookieValue(prod, new MemoryAuthStore(), null)).toBeNull();
   });
 
   it("쿠키 파싱", () => {
