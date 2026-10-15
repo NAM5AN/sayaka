@@ -134,10 +134,11 @@ export class SayakaService {
   }
 
   /** 한 턴의 입력 재료: DB 상태 → 문맥, 이번 턴에 보낼 설정, 반복 패턴 진단 */
-  private async prepareTurn(chatId: string, turnCount: number, text: string) {
+  private async prepareTurn(chatId: string, turnCount: number, text: string, promptVersion: string) {
     const state = await this.d.repo.loadState(chatId);
     const ctx: TurnContext = {
       chatId,
+      promptVersion,
       turnIndex: turnCount + 1,
       scene: state.scene,
       relationship: state.relationship,
@@ -163,7 +164,7 @@ export class SayakaService {
   async previewPrompt(ownerId: string, chatId: string) {
     const chat = await this.d.repo.getChat(ownerId, chatId);
     if (!chat) throw new ServiceError("NOT_FOUND", "대화방을 찾을 수 없어요.");
-    const { ctx, lore, patterns, disclosedTexts } = await this.prepareTurn(chatId, chat.turn_count, "");
+    const { ctx, lore, patterns, disclosedTexts } = await this.prepareTurn(chatId, chat.turn_count, "", chat.prompt_version);
     const prompt = buildPrompt({ ctx, lore, patterns, historyWindow: this.d.cfg.limits.historyWindow, disclosedTexts });
     const developer = prompt.input.find((i) => i.role === "developer")?.content ?? "";
     const history = prompt.input.filter((i) => i.role !== "developer").slice(0, -1);
@@ -241,7 +242,7 @@ export class SayakaService {
         }
       }
 
-      const { ctx, lore, patterns, disclosedTexts } = await this.prepareTurn(chatId, chat.turn_count, text);
+      const { ctx, lore, patterns, disclosedTexts } = await this.prepareTurn(chatId, chat.turn_count, text, chat.prompt_version);
       const safetyId = createHash("sha256").update(`sayaka:${ownerId}`).digest("hex").slice(0, 32);
 
       let correctionNotes: string[] = [];
@@ -297,7 +298,7 @@ export class SayakaService {
           status: "blocked",
           errorCode: code,
           model: modelName,
-          promptVersion: PROMPT_VERSION,
+          promptVersion: chat.prompt_version,
           attempts,
           latencyMs: Date.now() - started,
           inputTokens: usage.inputTokens || null,
@@ -366,7 +367,7 @@ export class SayakaService {
           requestId: clientRequestId,
           status: "ok",
           model: modelName,
-          promptVersion: PROMPT_VERSION,
+          promptVersion: chat.prompt_version,
           attempts,
           latencyMs: Date.now() - started,
           inputTokens: usage.inputTokens || null,
@@ -385,7 +386,7 @@ export class SayakaService {
       if (e instanceof ServiceError) throw e;
       if (e instanceof LlmError) {
         await this.d.repo
-          .logGeneration({ ownerId, chatId, requestId: clientRequestId, status: "error", errorCode: e.code, attempts, latencyMs: Date.now() - started, model: this.d.llm?.model ?? null, promptVersion: PROMPT_VERSION })
+          .logGeneration({ ownerId, chatId, requestId: clientRequestId, status: "error", errorCode: e.code, attempts, latencyMs: Date.now() - started, model: this.d.llm?.model ?? null, promptVersion: chat.prompt_version })
           .catch(() => undefined);
         throw new ServiceError(e.code, llmMessage(e.code));
       }
