@@ -2,7 +2,7 @@ import canon from "../../../../../data/character_canon.json";
 import { json } from "@/lib/http";
 import { guarded } from "@/lib/route-helpers";
 import { CHARACTER_VERSION, LEAK_GUARDS, LORE, LORE_REGISTRY_VERSION, OPENINGS, PROMPT_VERSION } from "@/lib/engine/canon";
-import { STABLE_INSTRUCTIONS } from "@/lib/engine/prompt";
+import { selectStableInstructions } from "@/lib/engine/prompt";
 import { turnJsonSchema } from "@/lib/engine/schema";
 
 export const runtime = "nodejs";
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     async () =>
       json({
         versions: { character: CHARACTER_VERSION, prompt: PROMPT_VERSION, lore: LORE_REGISTRY_VERSION },
-        instructions: STABLE_INSTRUCTIONS,
+        instructions: selectStableInstructions(PROMPT_VERSION),
         canon,
         lore: LORE,
         leakGuards: LEAK_GUARDS,
