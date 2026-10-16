@@ -206,6 +206,12 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
   const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   if (pluginFidelity) {
     const initiativeCheck = checkInitiative(ctx, turn.initiative, segments);
+    if (turn.action_intent === "initiate" && (!turn.initiative || turn.initiative.mode === "none")) {
+      issues.push({
+        code: "empty_initiation", severity: "retry",
+        fix: "스스로 시작한 행동을 선택했다면 사용자에게 보이는 실제 행동을 쓰고 initiative.mode=start/moment로 기록한다. 그런 행동이 없으면 action_intent를 상황에 맞게 다시 선택한다.",
+      });
+    }
     if (!initiativeCheck.valid) {
       issues.push({
         code: "unverified_initiative", severity: "retry",
