@@ -18,7 +18,7 @@ const GESTURES: { word: string; re: RegExp }[] = [
   { word: "한숨", re: /한숨/ },
   { word: "혀 차기", re: /혀를?\s?차|쯧/ },
   { word: "고개 갸웃", re: /갸웃/ },
-  { word: "시선·고개만 돌리기", re: /(?:시선을?\s*(?:돌리|옮기)|고개를?\s*돌리|힐끗|쳐다보)/ },
+  { word: "시선·고개만 돌리기", re: /(?:시선을?\s*(?:돌리|돌린|옮기|옮긴)|고개를?\s*(?:돌리|돌린)|힐끗|쳐다보)/ },
 ];
 
 export function analyzePatterns(history: HistoryMessage[], promptVersion?: string): PatternReport {
