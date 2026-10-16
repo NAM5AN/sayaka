@@ -98,7 +98,7 @@ export interface VisibilityCheck {
 }
 
 const visibleAbsent = /(?:보이지\s*않|모습이?\s*없|자리에\s*없|목소리.*들리지\s*않|부재|찾을\s*수\s*없)/;
-const remoteNarration = /(?:사야카|그녀|소녀)(?:는|가|의)?.{0,85}(?:걸어|걷|물건을|빵을|고르|계산|집어|읽|내려가|들어가|들어오|가지|봉지|살펴|돌아다니|따지|구매|쓰|웃|앉아)/;
+const remoteNarration = /(?:사야카|그녀|소녀)(?:는|가|의)?.{0,85}(?:걸어|걷|물건을|빵을|고르|계산|집어|읽|내려가|들어가|들어오|가지|봉지|살펴|돌아다니|따지|구매|쓰|웃|앉아|꺼내|들춰|챙기|문을\s*열)/;
 
 /** Prevent hidden actions from being serialized into player-facing segments. */
 export function checkVisibility(
@@ -136,7 +136,7 @@ export function checkVisibility(
     const text = segments.map((s) => s.text).join(" ");
     // After the departure is visible, a private purchase or other
     // post-departure action must not be narrated in that same public turn.
-    if (/(?:사라지|떠나|나갔|계단을\s*내려가|문밖으로).{0,170}(?:빵을?\s*고르|계산을?\s*마치|샀|구매|결제|집어\s*들|진열대)/.test(text)) {
+    if (/(?:사라지|떠나|나갔|나가|나온|복도\s*밖|계단을\s*내려가|문밖으로).{0,170}(?:빵을?\s*고르|계산을?\s*마치|샀|구매|결제|집어\s*들|진열대)/.test(text)) {
       return { leaks: true, reason: "퇴장 이후 보이지 않는 행동을 같은 공개 지문에 이어 썼다.", reunited };
     }
   }
