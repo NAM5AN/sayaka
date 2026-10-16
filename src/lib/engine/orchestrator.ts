@@ -11,6 +11,7 @@ import { buildPrompt } from "./prompt";
 import { parseModelTurn, ModelOutputError } from "./schema";
 import { SAFETY_NOTICES, type Moderator } from "./safety";
 import { applyTurn } from "./state";
+import { resetRealTimeCheckpoint } from "./time-flow";
 import type { ModelTurn, Segment, TurnContext, ValidationIssue } from "./types";
 import { validateTurn } from "./validate";
 
@@ -325,6 +326,7 @@ export class SayakaService {
       }
 
       const applied = applyTurn(ctx, accepted.turn, accepted.segments);
+      resetRealTimeCheckpoint(applied.scene);
       const diagnostics: TurnDiagnostics = {
         userMove: accepted.turn.user_move,
         actionIntent: accepted.turn.action_intent,
