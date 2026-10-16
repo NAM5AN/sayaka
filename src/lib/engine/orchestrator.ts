@@ -48,6 +48,9 @@ export class ServiceError extends Error {
 export interface TurnDiagnostics {
   userMove: string;
   actionIntent: string;
+  initiativeMode?: string;
+  initiativeProgressed?: boolean;
+  activity?: { objective: string; phase: string; nextStep: string; idleTurns: number } | null;
   emotion: string;
   situationRead: string;
   sayakaWant: string;
@@ -325,6 +328,14 @@ export class SayakaService {
       const diagnostics: TurnDiagnostics = {
         userMove: accepted.turn.user_move,
         actionIntent: accepted.turn.action_intent,
+        initiativeMode: accepted.turn.initiative?.mode ?? "none",
+        initiativeProgressed: applied.initiativeProgressed ?? false,
+        activity: applied.scene.sayaka.activity ? {
+          objective: applied.scene.sayaka.activity.objective,
+          phase: applied.scene.sayaka.activity.phase,
+          nextStep: applied.scene.sayaka.activity.next_step,
+          idleTurns: applied.scene.sayaka.activity.idle_turns,
+        } : null,
         emotion: accepted.turn.emotion,
         situationRead: accepted.turn.situation_read,
         sayakaWant: accepted.turn.sayaka_want,
