@@ -185,8 +185,10 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
     api<{ chats: ChatSummary[] }>("/api/chats")
       .then((r) => {
         setChats(r.chats);
+        const requested = new URLSearchParams(window.location.search).get("chat");
         const last = safeStorage.get("sayaka:lastChat");
-        const pick = r.chats.find((c) => c.id === last) ?? r.chats[0];
+        const pick = r.chats.find((c) => c.id === requested)
+          ?? r.chats.find((c) => c.id === last) ?? r.chats[0];
         if (pick) setActiveId(pick.id);
       })
       .catch((e: HttpError) => {
@@ -219,6 +221,12 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
     if (!activeId) {
       setView(null);
       return;
+    }
+    // Support direct links to a chat for reviewing recorded QA conversations.
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("chat") !== activeId) {
+      url.searchParams.set("chat", activeId);
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
     }
     setError(null);
     setDraft(safeStorage.get(`sayaka:draft:${activeId}`) ?? "");
