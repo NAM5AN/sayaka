@@ -4,6 +4,8 @@ import { STABLE_INSTRUCTIONS_PLUGIN_V020 } from "./prompt-plugin-v020";
 import { FULL_PRIVATE_CANON } from "./private-canon";
 import { VOICE_INSTRUCTIONS, voicePatternNotes } from "./voice";
 import { realTimePromptBlock } from "./time-flow";
+import { OFFSCREEN_INSTRUCTIONS } from "./offscreen-prompt";
+import { offscreenStateBlock } from "./offscreen";
 import { AUTONOMY_INSTRUCTIONS, initiativeStateBlock } from "./initiative-prompt";
 import type { SelectedLore } from "./lore";
 import type { PatternReport } from "./patterns";
@@ -96,7 +98,7 @@ export function selectStableInstructions(promptVersion?: string): string {
  */
 export function selectRuntimeInstructions(promptVersion?: string): string {
   const behavioral = selectStableInstructions(promptVersion);
-  if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return behavioral + "\n\n" + FULL_PRIVATE_CANON + "\n\n" + VOICE_INSTRUCTIONS + "\n\n" + AUTONOMY_INSTRUCTIONS;
+  if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return behavioral + "\n\n" + FULL_PRIVATE_CANON + "\n\n" + VOICE_INSTRUCTIONS + "\n\n" + AUTONOMY_INSTRUCTIONS + "\n\n" + OFFSCREEN_INSTRUCTIONS;
   return behavioral;
 }
 
@@ -246,10 +248,14 @@ export function buildPrompt(params: {
   const realTimeHint = realTimePromptBlock(ctx.scene);
   if (realTimeHint) dyn.push(realTimeHint);
   if (pluginFidelity) dyn.push(initiativeStateBlock(ctx.scene));
+  if (pluginFidelity) {
+    const privateScene = offscreenStateBlock(ctx.scene);
+    if (privateScene) dyn.push(privateScene);
+  }
   if (pluginFidelity) dyn.push(
-    "# 장소와 동행의 경계\n공유 장면 장소는 사용자와 사야카가 실제로 함께 있는 위치다. 제안만 한 장소로 이동했다고 확정하지 않는다. " +
+    "# 장소와 동행의 경계\n현재 장면의 장소는 플레이어가 직접 볼 수 있는 위치다. 사야카가 떠나도 플레이어의 위치는 저절로 바뀌지 않는다. " +
     "사야카가 혼자 걸어가면 sayaka_position 또는 sayaka_present만 바꾸고, 상대가 따라왔다고 쓰지 않는다. " +
-    "사용자가 실제 이동했고 사야카도 직접 움직인 경우에만 scene_location을 새 위치로 제안한다. " +
+    "사용자가 실제로 자기 발로 이동한 경우에만 scene_location을 새 장소로 제안한다. 사야카와 떨어졌다면 플레이어의 장소로만 쓰고, 실제 마주침 없이 합류시키지 않는다. " +
     "같은 장소에서 막연한 재촉만 반복하지 말고, 사야카가 스스로 진행하거나 마음을 바꾸거나 포기할 수 있다."
   );
   if (pluginFidelity) dyn.push(
