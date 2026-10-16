@@ -18,6 +18,7 @@ const GESTURES: { word: string; re: RegExp }[] = [
   { word: "한숨", re: /한숨/ },
   { word: "혀 차기", re: /혀를?\s?차|쯧/ },
   { word: "고개 갸웃", re: /갸웃/ },
+  { word: "시선·고개만 돌리기", re: /(?:시선을?\s*(?:돌리|옮기)|고개를?\s*돌리|힐끗|쳐다보)/ },
 ];
 
 export function analyzePatterns(history: HistoryMessage[], promptVersion?: string): PatternReport {
@@ -56,7 +57,9 @@ export function analyzePatterns(history: HistoryMessage[], promptVersion?: strin
     );
   }
   if (!pluginFidelity && mychewRecent >= 1) notes.push("마이쮸가 최근 응답에 이미 나왔다. 이번에는 장면에 있는 다른 것(꽃, 자기 행동, 시선, 침묵 등)을 쓴다.");
-  if (repeatedGestures.length) notes.push(`최근 지문에서 반복된 동작: ${repeatedGestures.join(", ")}. 이번에는 다른 몸짓이나 행동을 고른다.`);
+  if (repeatedGestures.length) notes.push(pluginFidelity
+    ? `최근 반복된 동작: ${repeatedGestures.join(", ")}. 똑같은 몸짓을 다른 몸짓으로 치환하는 데 그치지 말고, 사야카가 실제로 무엇을 하려는지 생각하라. 조용한 관찰이 맞다면 계속해도 된다.`
+    : `최근 지문에서 반복된 동작: ${repeatedGestures.join(", ")}. 이번에는 다른 몸짓이나 행동을 고른다.`);
   if (nameAskRecent >= 2) notes.push("상대 이름을 이미 여러 번 물었다. 계속 캐묻지 말고, 모르는 채로 두거나 관심을 접을 수 있다.");
   if (ellipsisStarts >= 2) notes.push("최근 대사가 계속 '……'로 시작했다. 말줄임표 대신 어휘와 태도로 무뚝뚝함을 보여라.");
   return { questionStreak, mychewRecent, repeatedGestures, nameAskRecent, ellipsisStarts, notes };
