@@ -135,7 +135,7 @@ describe("사용자 발언 기억, 관계 단계, 감정 조작 방어", () => {
     const named = applyTurn(ctxFor({ promptVersion: PROMPT_VERSION, turnIndex: 12, userText: "내 이름은 나츠키" }),
       turn({ memory_candidates: [{ kind: "user_claim", target: "user_name", value: "나츠키", text: "상대가 이름을 나츠키라고 함" }] }), []);
     expect(named.relationship.user_name).toBe("나츠키");
-    expect(named.relationship.stage).toBe("acquainted");
+    expect(named.relationship.stage).toBe("strangers"); // 이름 인지만으로 친밀해지지 않는다
   });
 
   it("사야카가 좋아하게 됐다는 서술은 감정·신뢰 상태의 근거가 아니다", () => {

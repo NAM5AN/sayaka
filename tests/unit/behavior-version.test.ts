@@ -5,6 +5,7 @@ import {
 } from "@/lib/engine/prompt";
 import { STABLE_INSTRUCTIONS_V020 } from "@/lib/engine/prompt-v020";
 import { STABLE_INSTRUCTIONS_PLUGIN_V020 } from "@/lib/engine/prompt-plugin-v020";
+import { ACTOR_CONSTITUTION } from "@/lib/engine/actor-constitution";
 import { FULL_PRIVATE_CANON, PRIVATE_CANON_STATS } from "@/lib/engine/private-canon";
 import { analyzePatterns } from "@/lib/engine/patterns";
 import { ctxFor } from "../helpers";
@@ -17,11 +18,13 @@ function versionPrompt(version: string) {
 }
 
 describe("사야카 플러그인 지침·설정 전체 이식", () => {
-  it("새 대화는 플러그인 교류 지침 + 전체 비공개 캐논 버전", () => {
-    expect(PROMPT_VERSION).toBe("web-0.1.0+plugin-v0.2.0-fidelity-fullcanon-voice-v2-autonomy-v1-offscreen-v1");
-    expect(selectStableInstructions(PROMPT_VERSION)).toBe(STABLE_INSTRUCTIONS_PLUGIN_V020);
+  it("새 채팅은 승인 캐릭터 판단 헌장 + 전체 비공개 캐논 버전, 기존 채팅은 구 규칙 보존", () => {
+    expect(PROMPT_VERSION).toBe("web-0.1.0+plugin-v0.2.0-fidelity-fullcanon-voice-v2-autonomy-v1-offscreen-v1-actor-v1");
+    expect(selectStableInstructions(PROMPT_VERSION)).toBe(ACTOR_CONSTITUTION);
+    expect(selectStableInstructions(PROMPT_VERSION.replace("-actor-v1", ""))).toBe(STABLE_INSTRUCTIONS_PLUGIN_V020);
     const p = versionPrompt(PROMPT_VERSION);
-    expect(p.instructions).toContain(STABLE_INSTRUCTIONS_PLUGIN_V020);
+    expect(p.instructions).toContain(ACTOR_CONSTITUTION);
+    expect(p.instructions).not.toContain(STABLE_INSTRUCTIONS_PLUGIN_V020);
     expect(p.instructions).toContain(FULL_PRIVATE_CANON);
     expect(p.promptCacheVersion).toBe(PROMPT_VERSION);
     expect(p.input[p.input.length - 1]).toEqual({ role: "user", content: "안녕" });
