@@ -123,15 +123,42 @@ export interface RealTimeFlowSettings {
   anchor_at: string | null;
 }
 
+/** An event only Sayaka experienced. Not part of the player-visible transcript. */
+export interface PrivateEvent {
+  turn: number;
+  action: string;
+  location: string;
+}
+
+export interface OffscreenState {
+  /** Sayaka's actual last internal location even when not observable. */
+  location: string;
+  /** Physical possessions acquired offscreen. Distinct from canonical valuables. */
+  carried: string[];
+  /** Recent private facts. Never serialize into public messages. */
+  events: PrivateEvent[];
+}
+
+/** One optional private action generated inside a normal user turn. */
+export interface OffscreenProposal {
+  action: string;
+  location: string;
+  carried_add: string[];
+  carried_remove: string[];
+}
+
 export interface SceneState {
   version: number;
   /** Optional so chats created before this feature remain OFF without migration. */
   real_time?: RealTimeFlowSettings;
   scenario: string;
   time_label: string;
+  /** Player's current observable location. When separated, not Sayaka's. */
   location: string;
   sayaka: {
     present: boolean;
+    /** Private independent state; only the server and internal model receive it. */
+    offscreen?: OffscreenState;
     position: string;
     goal: string;
     current_action: string;
@@ -207,6 +234,8 @@ export interface ModelTurn {
   initiative?: InitiativeProposal;
   /** Shared location changes only after both characters actually move. */
   scene_location?: string;
+  /** Internal private actions, not shown as dialogue/narration to the player. */
+  offscreen_event?: OffscreenProposal;
   memory_candidates: { kind: MemoryKind; target: MemoryTarget; value: string; text: string }[];
   disclosure_ids: string[];
   relationship_signals: { axis: RelAxis; direction: "up" | "down"; reason: string }[];
