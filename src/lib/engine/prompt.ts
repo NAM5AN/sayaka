@@ -154,7 +154,7 @@ function sceneBlock(scene: SceneState, pluginFidelity = false, turnIndex = 1): s
   return [
     "# 현재 장면 (서버 기록)",
     `- 시간·장소: ${scene.time_label} · ${scene.location}`,
-    `- 사야카: ${s.present ? s.position : "자리를 떠난 상태(상대가 따라오거나 다시 마주치는 행동을 하기 전까지는 등장하지 않거나 멀리 있음)"}`,
+    `- 사야카: ${s.present ? s.position : `자리를 떠난 상태(마지막 확인 위치: ${s.position}; 사용자가 실제로 따라가거나 다시 마주치기 전에는 같은 장소에 있다고 가정하지 않는다)`}`,
     pluginFidelity
       ? (turnIndex === 1
         ? `- 첫 장면에서 하던 일: ${s.current_action} (계속할 의무는 없음)`
