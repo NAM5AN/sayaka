@@ -6,6 +6,9 @@
  */
 import { randomUUID } from "node:crypto";
 import { getServices } from "../src/lib/services";
+import { SayakaService } from "../src/lib/engine/orchestrator";
+import { createOpenAiClient } from "../src/lib/engine/llm";
+import { createModerator } from "../src/lib/engine/safety";
 
 const OWNER = "owner";
 const TITLE = "🧪 GPT 실전테스트 · 자율성·말투·기억";
@@ -50,7 +53,24 @@ async function main() {
     return;
   }
 
-  const { cfg, service, db } = await getServices();
+  const { cfg, service: baseService, db } = await getServices();
+  const productionClient = createOpenAiClient(cfg);
+  const diagnosticClient = {
+    kind: productionClient.kind,
+    model: productionClient.model,
+    async generate(prompt: Parameters<typeof productionClient.generate>[0], opts: Parameters<typeof productionClient.generate>[1]) {
+      try {
+        return await productionClient.generate(prompt, opts);
+      } catch (e) {
+        const detail = e instanceof Error ? e.message : String(e);
+        console.log("VISIBLE_QA_MODEL_DIAG", detail.slice(0, 650));
+        throw e;
+      }
+    },
+  };
+  const service = new SayakaService({
+    repo: baseService.repo, cfg, llm: diagnosticClient, moderator: createModerator(cfg),
+  });
   if (cfg.ai.mode !== "openai") {
     console.log("VISIBLE_QA_SKIPPED: not an OpenAI-backed runtime");
     await db.close();
@@ -59,21 +79,29 @@ async function main() {
 
   let chatId: string | null = null;
   try {
-    const existing = await db.query<{ id: string }>(
-      "SELECT id FROM sayaka.chats WHERE owner_id=$1 AND title=$2 LIMIT 1",
+    const existing = await db.query<{ id: string; turn_count: number }>(
+      "SELECT id, turn_count FROM sayaka.chats WHERE owner_id=$1 AND title=$2 LIMIT 1",
       [OWNER, TITLE],
     );
+    let startIndex = 0;
+    let lastReply = "";
     if (existing.rows.length) {
-      console.log("VISIBLE_QA_ALREADY_EXISTS", JSON.stringify({ chatId: existing.rows[0].id }));
-      return;
+      chatId = existing.rows[0].id;
+      startIndex = existing.rows[0].turn_count;
+      if (startIndex >= 14) {
+        console.log("VISIBLE_QA_ALREADY_FINISHED", JSON.stringify({ chatId, turnCount: startIndex }));
+        return;
+      }
+      const messages = await service.repo.getMessages(chatId);
+      lastReply = messages.filter((m) => m.role === "assistant" && m.source === "model").at(-1)?.body ?? "";
+      console.log("VISIBLE_QA_RESUMING", JSON.stringify({ chatId, startIndex }));
+    } else {
+      const created = await service.createChat(OWNER, "quiet_v030");
+      chatId = created.chat.id;
+      console.log("VISIBLE_QA_CREATED", JSON.stringify({ chatId, model: cfg.ai.model }));
     }
 
-    const created = await service.createChat(OWNER, "quiet_v030");
-    chatId = created.chat.id;
-    console.log("VISIBLE_QA_CREATED", JSON.stringify({ chatId, model: cfg.ai.model }));
-
-    let lastReply = "";
-    for (let index = 0; index < 14; index++) {
+    for (let index = startIndex; index < 14; index++) {
       const before = await service.repo.loadState(chatId);
       const userText = pickTurn(index, lastReply, before.scene.sayaka.present);
       try {
