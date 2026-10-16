@@ -18,7 +18,7 @@ function versionPrompt(version: string) {
 
 describe("사야카 플러그인 지침·설정 전체 이식", () => {
   it("새 대화는 플러그인 교류 지침 + 전체 비공개 캐논 버전", () => {
-    expect(PROMPT_VERSION).toBe("web-0.1.0+plugin-v0.2.0-fidelity-fullcanon-voice-v2-autonomy-v1");
+    expect(PROMPT_VERSION).toBe("web-0.1.0+plugin-v0.2.0-fidelity-fullcanon-voice-v2-autonomy-v1-offscreen-v1");
     expect(selectStableInstructions(PROMPT_VERSION)).toBe(STABLE_INSTRUCTIONS_PLUGIN_V020);
     const p = versionPrompt(PROMPT_VERSION);
     expect(p.instructions).toContain(STABLE_INSTRUCTIONS_PLUGIN_V020);
