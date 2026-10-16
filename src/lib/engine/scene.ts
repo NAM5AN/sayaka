@@ -102,7 +102,8 @@ export function userCatchesUpToSayaka(userText: string, segments: Segment[], kno
  * own narration.
  */
 function playerActionClauses(text: string): string[] {
-  const actions = Array.from(text.matchAll(/[(（]([^()（）]{1,350})[)）]/g), (match) => match[1].trim());
+  const actions = Array.from(text.matchAll(/[(（]([^()（）]{1,350})[)）]/g), (match) => match[1].trim())
+    .flatMap((paragraph) => paragraph.split(/(?<=[.!?。？！])\s*/).map((clause) => clause.trim()).filter(Boolean));
   const spoken = text.replace(/[(（][^()（）]*[)）]/g, " ").split(/[.!?。\n]/)
     .map((part) => part.trim())
     .filter((part) => /(?:^|[\s,，])(?:나는|난|내가|나도|우리는|우리도|둘이서|사야카를\s*따라|그녀를\s*따라)/.test(part));
@@ -129,8 +130,14 @@ export function groundedPlayerMove(userText: string, nextLocation: string): bool
   if (!target || target.length > 80 || /[\n\r]/.test(target)) return false;
   const anchors = locationAnchors(target);
   if (!anchors.length) return false;
+  const authored = playerAuthoredDestination(userText);
+  // Reaching the threshold is not an entry to the interior.
+  if (authored && /(?:문\s*앞|입구)/.test(authored)
+    && !/(?:문\s*앞|입구)/.test(target)) return false;
+  if (!authored && playerActionClauses(userText).some(uncompletedMovement)) return false;
   return playerActionClauses(userText).some((action) =>
     COMPLETED_PLAYER_MOVE.test(action)
+    && !uncompletedMovement(action)
     && anchors.some((word) => action.includes(word))
     && !/(?:가려고만|가고\s*싶|갈\s*예정|도착하려다|가볼까|간다고\s*했)/.test(action));
 }
@@ -139,18 +146,48 @@ export function groundedPlayerMove(userText: string, nextLocation: string): bool
  * Recover an explicit arrival from the player's own narration even if the
  * model forgot scene_location. It never guesses a new location from a desire.
  */
-export function playerAuthoredDestination(userText: string): string | null {
+/** Negated or merely contemplated travel does not change physical position. */
+function uncompletedMovement(clause: string): boolean {
+  const joined = clause.replace(/\s+/g, "");
+  return /(?:들어|도착|내려|올라|이동|따라|쫓아|걸어|발을들여).{0,16}?(?:지(?:는)?않|지못|지말|기만|려다|려고만)/.test(joined)
+    || /(?:안|못)(?:들어가|도착|걸어가|따라가|나가|내려가|올라가)/.test(joined);
+}
+
+/**
+ * Resolve the LAST completed player-authored destination in the message.
+ * Segmenting actions by sentences makes "arrived at the door" independent
+ * of the following "I have not entered" statement.
+ */
+export function playerAuthoredDestination(userText: string, fromLocation = ""): string | null {
+  let confirmed: string | null = null;
   for (const action of playerActionClauses(userText)) {
-    if (!COMPLETED_PLAYER_MOVE.test(action)) continue;
-    if (/(?:도착하려다|가려고만|가고\s*싶)/.test(action)) continue;
+    if (!COMPLETED_PLAYER_MOVE.test(action) || uncompletedMovement(action)) continue;
+
     const inside = action.match(/([가-힣A-Za-z0-9]{2,})\s*(?:안으로|안쪽으로|내부로|안에)\s*(?:발(?:을)?\s*들여|들어|걸어\s*들어|입장)/);
-    if (inside && locationAnchors(inside[1]).length) return inside[1];
+    if (inside && locationAnchors(inside[1]).length) {
+      confirmed = inside[1];
+      continue;
+    }
     const doorway = action.match(/([가-힣A-Za-z0-9]{2,})\s*(?:문|출입문|입구)\s*앞에\s*(?:선다|섰|서서|도착)/);
-    if (doorway) return doorway[1] + " 문 앞";
+    if (doorway) {
+      confirmed = doorway[1] + " 문 앞";
+      continue;
+    }
     const at = action.match(/([가-힣A-Za-z0-9]{2,})(?:에|으로|까지)\s*(?:도착(?:했|한다|해서|한)|들어(?:갔|간다|선다)|걸어(?:갔|가)|뛰어(?:갔|가))/);
-    if (at && locationAnchors(at[1]).length) return at[1];
+    if (at && locationAnchors(at[1]).length) {
+      confirmed = at[1];
+      continue;
+    }
+
+    // The actor can cross the same threshold in a subsequent sentence, or
+    // from the already-grounded doorway stored in the scene.
+    const threshold = confirmed || fromLocation;
+    if (/(?:문을?\s*(?:열고|열어|밀어\s*열고))?.{0,30}(?:안으로\s*(?:들어가|들어서|걸어)|발(?:을)?\s*들여)/.test(action)
+      && /(?:문\s*앞|입구)/.test(threshold)) {
+      confirmed = threshold.replace(/\s*(?:문\s*앞|입구).*$/, "");
+    }
   }
-  return null;
+  return confirmed;
 }
 
 /**
