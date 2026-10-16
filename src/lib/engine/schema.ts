@@ -59,6 +59,18 @@ export function turnJsonSchema(): Record<string, unknown> {
       sayaka_present: { type: "string", enum: ["stays", "leaves"] },
       sayaka_position: { ...str, description: "바뀌었으면 새 위치, 아니면 빈 문자열." },
       sayaka_goal: { ...str, description: "사야카가 하려는 일이 바뀌었으면 새 목표, 아니면 빈 문자열." },
+      initiative: {
+        type: "object",
+        additionalProperties: false,
+        description: "사야카가 선택한 지속 목표의 실제 단계. 사건을 매턴 만들 의무 없음. evidence는 이번에 출력한 segments의 실제 대사·지문에서 인용.",
+        properties: {
+          mode: { type: "string", enum: ["none", "start", "advance", "wait", "complete", "abandon", "moment"] },
+          objective: { ...str, description: "start/moment만 새 목표, 나머지는 빈 문자열이거나 이미 진행 중인 목표." },
+          next_step: { ...str, description: "start/advance이면 사야카 자신이 실행할 다음 단계. wait이면 기다리는 조건, 그 밖에는 빈 문자열." },
+          evidence: { ...str, description: "start/advance/complete/abandon/moment에는 실제로 출력한 사야카의 대사나 행동 일부를 그대로 인용. none/wait는 빈 문자열." },
+        },
+        required: ["mode", "objective", "next_step", "evidence"],
+      },
       scene_location: { ...str, description: "상대와 사야카가 함께 이동해 공유 장면의 위치가 바뀐 경우 새 장소. 제안하거나 준비만 한 상태, 사야카 혼자 이동한 경우 빈 문자열. 상대의 이동을 임의 확정하지 말 것." },
       memory_candidates: {
         type: "array",
@@ -103,6 +115,7 @@ export function turnJsonSchema(): Record<string, unknown> {
       "sayaka_present",
       "sayaka_position",
       "sayaka_goal",
+      "initiative",
       "scene_location",
       "memory_candidates",
       "disclosure_ids",
@@ -131,6 +144,12 @@ export const TurnZ = z.object({
   sayaka_present: z.enum(["stays", "leaves"]),
   sayaka_position: short(60),
   sayaka_goal: short(80),
+  initiative: z.object({
+    mode: z.enum(["none", "start", "advance", "wait", "complete", "abandon", "moment"]),
+    objective: short(120),
+    next_step: short(120),
+    evidence: short(180),
+  }).default({ mode: "none", objective: "", next_step: "", evidence: "" }),
   scene_location: short(80).default(""),
   memory_candidates: z
     .array(
