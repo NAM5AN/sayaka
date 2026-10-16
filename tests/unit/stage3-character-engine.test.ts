@@ -27,6 +27,28 @@ describe("3단계: 실제 사용자 행동과 사야카 상태를 분리한다",
     expect(groundedReunion(text,"학교 매점","학교 매점",segments,"매점 문 앞")).toBe(true);
     expect(groundedReunion(text,"학교 매점","학교 매점",segments,"학교 복도")).toBe(false);
   });
+  it("실제 매점 재회: 문 앞까지 이동하고 안을 보기 전에는 비공개 행동을 공개하지 않는다",()=>{
+    const separated=ctxFor({promptVersion:PROMPT_VERSION,userText:"(나는 복도 벤치에서 일어나 계단을 내려 매점 문 앞에 선다.)"});
+    separated.scene.sayaka.present=false;
+    separated.scene.sayaka.position="학교 매점";
+    separated.scene.sayaka.offscreen={location:"학교 매점",carried:["빵 봉지"],events:[]};
+    const outside=[{kind:"narration" as const,text:"매점 앞 복도에서는 학생들이 오간다."}];
+    const first=turn({scene_location:"학교 매점",segments:outside});
+    const seenOutside=applyTurn(separated,first,outside).scene;
+    expect(seenOutside.location).toBe("매점 문 앞");
+    expect(seenOutside.sayaka.present).toBe(false);
+    const next=ctxFor({promptVersion:PROMPT_VERSION,scene:seenOutside,turnIndex:2,
+      userText:"(나는 매점 문을 열고 안쪽을 둘러본다.) 사야카, 여기 있어?"});
+    const visible=[{kind:"narration" as const,text:"사야카가 매점 계산대 앞에 서 있다."},
+      {kind:"dialogue" as const,text:"왜, 뒤늦게 왔어?"}];
+    const t=turn({scene_location:"학교 매점",sayaka_present:"stays",segments:visible});
+    expect(validateTurn({ctx:next,turn:t,segments:visible,hadSpeakerLabel:false})
+      .some(x=>x.code==="offscreen_spoiler")).toBe(false);
+    const result=applyTurn(next,t,visible);
+    expect(result.scene.location).toBe("매점 문 앞");
+    expect(result.scene.sayaka.present).toBe(true);
+    expect(result.scene.sayaka.offscreen?.carried).toContain("빵 봉지");
+  });
   it("말로 목적지만 제안해도, 사야카가 움직인다고 적어도 사용자 이동이 아니다",()=>{
     expect(groundedPlayerMove("매점 갈까?","학교 매점")).toBe(false);
     expect(groundedPlayerMove("(사야카는 매점으로 걸어간다.)","학교 매점")).toBe(false);
