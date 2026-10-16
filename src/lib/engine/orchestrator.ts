@@ -51,6 +51,7 @@ export interface TurnDiagnostics {
   actionIntent: string;
   initiativeMode?: string;
   initiativeProgressed?: boolean;
+  privateEventAccepted?: boolean;
   activity?: { objective: string; phase: string; nextStep: string; idleTurns: number } | null;
   emotion: string;
   situationRead: string;
@@ -333,7 +334,10 @@ export class SayakaService {
 
       // 출력 안전 점검 (성적 내용 등). 걸리면 저장하지 않는다.
       if (this.d.moderator) {
-        const v = await this.d.moderator.check(accepted.segments.map((s) => s.text).join("\n"));
+        const v = await this.d.moderator.check([
+          ...accepted.segments.map((s) => s.text),
+          accepted.turn.offscreen_event?.action ?? "",
+        ].join("\n"));
         if (v.flagged && v.category === "sexual") {
           await this.d.repo.logGeneration({ ownerId, chatId, requestId: clientRequestId, status: "blocked", errorCode: "OUTPUT_SAFETY", attempts });
           throw new ServiceError("VALIDATION_FAILED", "생성된 응답이 안전 기준에 맞지 않아 저장하지 않았어요. 다른 방향으로 이어가 주세요.");
@@ -347,6 +351,7 @@ export class SayakaService {
         actionIntent: accepted.turn.action_intent,
         initiativeMode: accepted.turn.initiative?.mode ?? "none",
         initiativeProgressed: applied.initiativeProgressed ?? false,
+        privateEventAccepted: applied.privateEventAccepted ?? false,
         activity: applied.scene.sayaka.activity ? {
           objective: applied.scene.sayaka.activity.objective,
           phase: applied.scene.sayaka.activity.phase,
