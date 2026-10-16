@@ -190,6 +190,55 @@ export class Repo implements AuthStore {
     return r.rows[0] ?? null;
   }
 
+  /** Read only the caller-owned room's time option; all legacy rooms default to OFF. */
+  async getRealTimeEnabled(ownerId: string, chatId: string): Promise<boolean | null> {
+    if (!isUuid(chatId)) return null;
+    const r = await this.db.query<{ enabled: boolean }>(
+      `SELECT COALESCE((s.state->'real_time'->>'enabled')::boolean, false) AS enabled
+       FROM sayaka.chats c
+       JOIN sayaka.scene_states s ON s.chat_id=c.id
+       WHERE c.id=$1 AND c.owner_id=$2`,
+      [chatId, ownerId],
+    );
+    return r.rows[0]?.enabled ?? null;
+  }
+
+  /**
+   * Toggle only the owner-owned room, atomically with scene JSON.
+   * Running turns hold a lease; do not allow settings writes that might be
+   * overwritten by a long-running generation commit.
+   */
+  async setRealTimeEnabled(
+    ownerId: string, chatId: string, enabled: boolean,
+  ): Promise<"ok" | "not_found" | "busy"> {
+    if (!isUuid(chatId)) return "not_found";
+    return this.db.tx(async (q) => {
+      const locked = await q.query<{ lease_until: Date | string | null }>(
+        `SELECT lease_until FROM sayaka.chats WHERE id=$1 AND owner_id=$2 FOR UPDATE`,
+        [chatId, ownerId],
+      );
+      if (!locked.rows.length) return "not_found";
+      const lease = locked.rows[0].lease_until;
+      if (lease && new Date(lease).getTime() > Date.now()) return "busy";
+      const current = await q.query<{ state: SceneState }>(
+        `SELECT state FROM sayaka.scene_states WHERE chat_id=$1 FOR UPDATE`,
+        [chatId],
+      );
+      if (!current.rows.length) return "not_found";
+      const scene = current.rows[0].state;
+      if ((scene.real_time?.enabled ?? false) === enabled) return "ok";
+      scene.real_time = {
+        enabled,
+        anchor_at: enabled ? new Date().toISOString() : null,
+      };
+      await q.query(
+        `UPDATE sayaka.scene_states SET state=$2::jsonb, updated_at=now() WHERE chat_id=$1`,
+        [chatId, JSON.stringify(scene)],
+      );
+      return "ok";
+    });
+  }
+
   async getMessages(chatId: string): Promise<MessageRow[]> {
     return (await this.db.query<MessageRow>(`SELECT * FROM sayaka.messages WHERE chat_id=$1 ORDER BY seq ASC`, [chatId])).rows;
   }
