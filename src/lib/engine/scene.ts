@@ -164,7 +164,7 @@ export function playerAuthoredDestination(userText: string, fromLocation = ""): 
     if (!COMPLETED_PLAYER_MOVE.test(action) || uncompletedMovement(action)) continue;
 
     const inside = action.match(/([가-힣A-Za-z0-9]{2,})\s*(?:안으로|안쪽으로|내부로|안에)\s*(?:발(?:을)?\s*들여|들어|걸어\s*들어|입장)/);
-    if (inside && locationAnchors(inside[1]).length) {
+    if (inside && locationAnchors(inside[1]).length && !["열고", "열어", "문을", "닫고", "발을", "손을"].includes(inside[1])) {
       confirmed = inside[1];
       continue;
     }
