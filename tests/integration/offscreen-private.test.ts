@@ -102,7 +102,7 @@ describe("실제 DB 채팅: 보이지 않는 사야카의 생활", () => {
       }
     }
     const visible = await service.getChat(owner, chat.id, false);
-    expect(visible.admin).toBeUndefined();
+    expect("admin" in visible).toBe(false);
     expect("state" in visible).toBe(false);
     expect(visible.messages).toHaveLength(9); // opening + four user/response pairs
     const assistant = visible.messages.filter((m) => m.source === "model");
