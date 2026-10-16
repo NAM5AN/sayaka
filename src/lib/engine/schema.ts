@@ -71,7 +71,19 @@ export function turnJsonSchema(): Record<string, unknown> {
         },
         required: ["mode", "objective", "next_step", "evidence"],
       },
-      scene_location: { ...str, description: "상대와 사야카가 함께 이동해 공유 장면의 위치가 바뀐 경우 새 장소. 제안하거나 준비만 한 상태, 사야카 혼자 이동한 경우 빈 문자열. 상대의 이동을 임의 확정하지 말 것." },
+      scene_location: { ...str, description: "사용자가 실제로 움직인 뒤 공유 또는 사용자 자신의 위치가 바뀐 경우 새 장소. 사용자 입력에 실제 이동 근거가 없으면 빈 문자열." },
+      offscreen_event: {
+        type: "object",
+        additionalProperties: false,
+        description: "사용자와 떨어져 있을 때 사야카 혼자 실제로 수행한 비공개 행동. 사용자에게는 절대로 서술하지 않음. 행동 없으면 빈 action/location/배열.",
+        properties: {
+          action: { ...str, description: "사야카의 실제 사적 행동을 짧은 3인칭 지문으로. 같은 장소에서 보이지 않는 행동도 실제로 진행할 수 있음. 사용자 캐릭터의 동작을 확정하지 않음." },
+          location: { ...str, description: "사야카가 비공개 행동 후 실제로 있는 위치. 알 수 없으면 빈 문자열. 공유 위치와 무관." },
+          carried_add: { type: "array", items: str, description: "해당 비공개 행동으로 사야카가 실제 손에 넣은 일반 물건. 없으면 빈 배열." },
+          carried_remove: { type: "array", items: str, description: "해당 비공개 행동으로 더 이상 지니지 않는 일반 물건. 없으면 빈 배열." },
+        },
+        required: ["action", "location", "carried_add", "carried_remove"],
+      },
       memory_candidates: {
         type: "array",
         items: {
@@ -117,6 +129,7 @@ export function turnJsonSchema(): Record<string, unknown> {
       "sayaka_goal",
       "initiative",
       "scene_location",
+      "offscreen_event",
       "memory_candidates",
       "disclosure_ids",
       "relationship_signals",
@@ -151,6 +164,12 @@ export const TurnZ = z.object({
     evidence: short(180),
   }).default({ mode: "none", objective: "", next_step: "", evidence: "" }),
   scene_location: short(80).default(""),
+  offscreen_event: z.object({
+    action: short(360),
+    location: short(80),
+    carried_add: z.array(short(50)).max(5),
+    carried_remove: z.array(short(50)).max(5),
+  }).default({ action: "", location: "", carried_add: [], carried_remove: [] }),
   memory_candidates: z
     .array(
       z.object({
