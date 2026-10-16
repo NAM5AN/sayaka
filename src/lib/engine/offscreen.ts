@@ -107,6 +107,17 @@ export function checkVisibility(
   segments: Segment[],
 ): VisibilityCheck {
   const reunited = willReunite(ctx, turn, segments);
+  // Moving the player's viewpoint elsewhere must not leave Sayaka's old
+  // location visible like a remote camera after the departure.
+  const playerMovedAway = ctx.scene.sayaka.present && turn.sayaka_present !== "leaves"
+    && !!turn.scene_location && turn.scene_location !== ctx.scene.location
+    && groundedPlayerMove(ctx.userText, turn.scene_location)
+    && !/(?:사야카|그녀|소녀).{0,60}(?:함께|같이|옆에서).{0,60}(?:도착|걸어|들어가)/.test(segments.map((s) => s.text).join(" "));
+  if (playerMovedAway && segments.some((s) =>
+    s.kind === "dialogue" || (s.kind === "narration" && remoteNarration.test(s.text) && !visibleAbsent.test(s.text))
+  )) {
+    return { leaks: true, reason: "플레이어가 혼자 떠난 뒤 사야카의 이전 장소에서 벌어지는 일을 보여 주었다.", reunited };
+  }
   if (!ctx.scene.sayaka.present && !reunited) {
     if (segments.some((s) => s.kind === "dialogue")) {
       return { leaks: true, reason: "사야카가 사용자 곁에 없는데 직접 대사를 출력했다.", reunited };
@@ -119,6 +130,14 @@ export function checkVisibility(
     if (concretePlaceWords(place).some((word) => text.includes(word))
        && /(?:매점|진열대|계산대|물건|빵|가방|학교 밖).{0,60}(?:고르|계산|샀|살펴|도착|챙겼|들어갔)/.test(text)) {
       return { leaks: true, reason: "플레이어가 볼 수 없는 별도 장소의 진행 과정을 출력했다.", reunited };
+    }
+  }
+  if (ctx.scene.sayaka.present && turn.sayaka_present === "leaves" && turn.offscreen_event?.action) {
+    const text = segments.map((s) => s.text).join(" ");
+    // After the departure is visible, a private purchase or other
+    // post-departure action must not be narrated in that same public turn.
+    if (/(?:사라지|떠나|나갔|계단을\s*내려가|문밖으로).{0,170}(?:빵을?\s*고르|계산을?\s*마치|샀|구매|결제|집어\s*들|진열대)/.test(text)) {
+      return { leaks: true, reason: "퇴장 이후 보이지 않는 행동을 같은 공개 지문에 이어 썼다.", reunited };
     }
   }
   if (turn.offscreen_event?.action && segments.some((s) =>
