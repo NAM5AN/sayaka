@@ -49,6 +49,12 @@ describe("3단계: 실제 사용자 행동과 사야카 상태를 분리한다",
     expect(result.scene.sayaka.present).toBe(true);
     expect(result.scene.sayaka.offscreen?.carried).toContain("빵 봉지");
   });
+  it("발을 들여 실제 실내에 들어갔다는 자연어도 장소 이동으로 이해한다",()=>{
+    const msg="(나는 매점 안으로 발을 들여 문가에 선다. 소리가 나는 쪽을 본다.)";
+    expect(playerAuthoredDestination(msg)).toBe("매점");
+    expect(groundedPlayerMove(msg,"매점")).toBe(true);
+    expect(playerAuthoredDestination("(매점 안으로 들어갈까 망설인다.)")).toBeNull();
+  });
   it("말로 목적지만 제안해도, 사야카가 움직인다고 적어도 사용자 이동이 아니다",()=>{
     expect(groundedPlayerMove("매점 갈까?","학교 매점")).toBe(false);
     expect(groundedPlayerMove("(사야카는 매점으로 걸어간다.)","학교 매점")).toBe(false);
