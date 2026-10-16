@@ -59,3 +59,30 @@ export function sayakaActuallyReturned(segments: Segment[]): boolean {
 export function userForcesSayakaState(userText: string): boolean {
   return /사야카(?:는|가|의).{0,90}(?:호감도|친밀도|신뢰도|좋아하게\s*된다|사랑하게\s*된다|고백한다|고백했|친밀감을\s*느낀다|사랑을\s*느낀다|반드시\s*좋아|강한\s*호감)/.test(userText);
 }
+
+/** Keep an offscreen destination only when Sayaka visibly departed that way. */
+export function groundedSayakaDeparture(position: string, segments: Segment[]): boolean {
+  const pos = position.trim();
+  if (!pos || pos === "자리를 떠남") return false;
+  const narration = segments.filter((s) => s.kind === "narration").map((s) => s.text).join(" ");
+  if (!/(?:사야카|소녀|그녀).{0,100}(?:걸어|달려|뛰어|나서|나가|나왔|떠나|들어가|도착)/.test(narration)) return false;
+  const words = (pos.match(/[가-힣A-Za-z]{2,}/g) ?? [])
+    .filter((word) => !["학교", "그쪽", "방향", "중인", "가는", "도착", "근처", "앞쪽", "쪽으로"].includes(word));
+  if (!words.some((word) => narration.includes(word))) return false;
+  // "공원에 간다" is not the same as having arrived at the park.
+  const enRoute = /(?:가는 중|향하는 중|방향|쪽으로)/.test(pos);
+  return enRoute || /(?:도착|들어서|들어갔|나왔|나선다|나섰|앞에\s*섰|입구에\s*섰)/.test(narration);
+}
+
+/** User may catch up to Sayaka after she voluntarily left the shared scene. */
+export function userCatchesUpToSayaka(userText: string, segments: Segment[], knownPosition: string): boolean {
+  if (!knownPosition || knownPosition === "자리를 떠남") return false;
+  const movingPlayer = /(?:나는|난|내가|나도|사야카를\s*따라|그녀를\s*따라|^\s*[(（]\s*따라).{0,100}(?:따라|쫓아|걸어|뛰어|도착|들어간|나간|나온)/.test(userText);
+  if (!movingPlayer) return false;
+  const narration = segments.filter((s) => s.kind === "narration").map((s) => s.text).join(" ");
+  const sayakaVisible = /(?:사야카|소녀|그녀).{0,100}(?:서\s*있|기다리|눈에\s*들어|보인다|보였|발견|마주치)/.test(narration);
+  if (!sayakaVisible) return false;
+  const tokens = (knownPosition.match(/[가-힣A-Za-z]{2,}/g) ?? [])
+    .filter((word) => !["학교", "밖으로", "방향", "가는", "중인", "근처", "앞쪽"].includes(word));
+  return tokens.some((word) => narration.includes(word));
+}
