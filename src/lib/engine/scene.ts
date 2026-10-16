@@ -86,3 +86,51 @@ export function userCatchesUpToSayaka(userText: string, segments: Segment[], kno
     .filter((word) => !["학교", "밖으로", "방향", "가는", "중인", "근처", "앞쪽"].includes(word));
   return tokens.some((word) => narration.includes(word));
 }
+
+/**
+ * Scene.location is always the location the *player can observe*, even when
+ * Sayaka is elsewhere. Only the player's own completed physical movement
+ * can change that location. No assistant-authored player action is evidence.
+ */
+export function groundedPlayerMove(userText: string, nextLocation: string): boolean {
+  const target = nextLocation.trim();
+  if (!target || target.length > 80 || /[\n\r]/.test(target)) return false;
+  const explicit = /(?:^|[\s(（])(?:나는|난|내가|나도|우리(?:는|가|도)?|둘이(?:서|는)?|사야카를\s*따라|그녀를\s*따라)/.test(userText);
+  const implicit = /(?:^|\n)\s*[(（](?!\s*(?:사야카|그녀|소녀|다른\s*학생)(?:는|가|의))[^)）]{0,140}(?:도착|들어간|들어갔|걸어가|따라가|나왔다|나간다|내려간|올라간)[)）]/.test(userText);
+  const motion = /(?:도착|들어갔|들어간다|걸어가|걸어왔|걸어들|따라갔|따라간|따라가|나섰|나왔다|나간다|내려갔|내려간|올라갔|올라간|뛰어갔|뛰어간|이동했)/.test(userText);
+  if (!(explicit || implicit) || !motion) return false;
+  if (/^\s*[(（]?\s*사야카(?:는|가|를)/.test(userText) && !/(?:나는|난|내가|나도|우리|함께)/.test(userText)) return false;
+  const words = (target.match(/[가-힣A-Za-z]{2,}/g) ?? [])
+    .filter((w) => !["학교", "동네", "근처", "주변", "바로", "여기", "저기", "안쪽", "앞쪽"].includes(w));
+  return words.length > 0 && words.some((w) => userText.includes(w));
+}
+
+/** Check location equivalence without making generic 'school' a match. */
+export function sameSpecificPlace(a: string, b: string): boolean {
+  if (!a || !b || a === "자리를 떠남" || b === "자리를 떠남") return false;
+  const generic = new Set(["학교", "동네", "근처", "주변", "안쪽", "바깥", "바로", "방향", "가는", "중인", "교내"]);
+  const aa = (a.match(/[가-힣A-Za-z]{2,}/g) ?? []).filter((w) => !generic.has(w));
+  const bb = (b.match(/[가-힣A-Za-z]{2,}/g) ?? []).filter((w) => !generic.has(w));
+  return aa.some((x) => bb.some((y) => x === y || (x.length >= 3 && y.includes(x)) || (y.length >= 3 && x.includes(y))));
+}
+
+/** A narrated direct encounter plus a player-authored arrival, or Sayaka's own return. */
+export function groundedReunion(
+  userText: string,
+  nextPlayerLocation: string,
+  sayakaLocation: string,
+  segments: Segment[],
+  previousPlayerLocation: string,
+): boolean {
+  if (sayakaActuallyReturned(segments)) return true;
+  const spoken = segments.filter((s) => s.kind === "dialogue").map((s) => s.text).join(" ");
+  const visible = segments.filter((s) => s.kind === "narration").map((s) => s.text).join(" ");
+  const encounter = /(?:사야카|소녀|그녀).{0,90}(?:마주|눈에\s*들|보인다|발견|서\s*있|기다리|알아보|쳐다보|다가오|인사)|(?:마주\s*친|마주\s*쳤|발견했|보였).{0,60}(?:사야카|소녀|그녀)/.test(visible);
+  if (!encounter) return false;
+  const explicitArrival = groundedPlayerMove(userText, nextPlayerLocation);
+  if (!explicitArrival) return false;
+  if (nextPlayerLocation === previousPlayerLocation) return false;
+  if (!sameSpecificPlace(nextPlayerLocation, sayakaLocation)) return false;
+  // Sayaka must have a visible appearance, not only a voice from afar.
+  return visible.length > 0 && !/전화|문자|스피커|무전기/.test(spoken);
+}
