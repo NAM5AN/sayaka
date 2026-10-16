@@ -96,6 +96,25 @@ export interface ItemState {
   shown_to_user: boolean;
 }
 
+export type InitiativeMode = "none" | "start" | "advance" | "wait" | "complete" | "abandon" | "moment";
+
+export interface InitiativeProposal {
+  mode: InitiativeMode;
+  objective: string;
+  next_step: string;
+  /** Quote a short, verbatim visible speech/action segment as grounding. */
+  evidence: string;
+}
+
+export interface AutonomousActivity {
+  objective: string;
+  phase: "acting" | "waiting";
+  next_step: string;
+  last_step: string;
+  last_progress_turn: number;
+  idle_turns: number;
+}
+
 export interface SceneState {
   version: number;
   scenario: string;
@@ -106,6 +125,9 @@ export interface SceneState {
     position: string;
     goal: string;
     current_action: string;
+    /** Stateful independent action, kept separate from transient sayaka_want. */
+    activity?: AutonomousActivity | null;
+    last_activity_outcome?: string;
     emotion: Emotion;
     noticed_user: boolean;
   };
@@ -171,6 +193,8 @@ export interface ModelTurn {
   sayaka_present: "stays" | "leaves";
   sayaka_position: string;
   sayaka_goal: string;
+  /** Optional for legacy fixture parsing; strict API schema always requires it. */
+  initiative?: InitiativeProposal;
   /** Shared location changes only after both characters actually move. */
   scene_location?: string;
   memory_candidates: { kind: MemoryKind; target: MemoryTarget; value: string; text: string }[];
