@@ -25,6 +25,6 @@ export function overlyTeacherlyReply(userMove: string, userText: string, segment
   const spoken = segments.filter((s) => s.kind === "dialogue").map((s) => s.text).join(" ");
   if (!spoken) return false;
   const lecture = /(?:예의 좀 갖춰|예의를 지켜|그런 말(?:을|은) 하면 안|그런 행동(?:을|은) 하면 안|사람한테 그런 식으로|상대방에게 함부로)/.test(spoken);
-  const personal = /(?:짜증|기분\s?나쁘|왜 나한테|왜 자꾸|어이없|만만|웃기|싫어|뭐야|바보|하[아?!]|그만|건드리지|너부터)/.test(spoken);
+  const personal = /(?:짜증|기분\s?나쁘|왜 나한테|왜 자꾸|어이없|만만|웃기|싫어|뭐야|바보|하[아?!]|그만|건드리지)/.test(spoken);
   return lecture && !personal;
 }
