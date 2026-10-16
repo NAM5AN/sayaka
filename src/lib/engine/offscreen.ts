@@ -98,7 +98,7 @@ export interface VisibilityCheck {
 }
 
 const visibleAbsent = /(?:보이지\s*않|모습이?\s*없|자리에\s*없|목소리.*들리지\s*않|부재|찾을\s*수\s*없)/;
-const remoteNarration = /(?:사야카|그녀|소녀)(?:는|가|의)?.{0,85}(?:걸어|걷|물건을|빵을|고르|계산|집어|읽|내려가|들어가|들어오|가지|봉지|살펴|돌아다니|따지|구매|쓰|웃|앉아|꺼내|들춰|챙기|문을\s*열)/;
+const remoteNarration = /(?:사야카|그녀|소녀)(?:는|가|의)?.{0,85}(?:걸어|걷|물건을|빵을|고르|계산|집어|읽|내려가|들어가|들어오|가지|봉지|살펴|돌아다니|따지|구매|쓰|웃|앉아|꺼내|꺼낸|들춰|챙기|챙겼|문을\s*열|빗을)/;
 
 /** Prevent hidden actions from being serialized into player-facing segments. */
 export function checkVisibility(
