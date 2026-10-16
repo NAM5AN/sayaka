@@ -181,7 +181,7 @@ export function playerAuthoredDestination(userText: string, fromLocation = ""): 
 
     // The actor can cross the same threshold in a subsequent sentence, or
     // from the already-grounded doorway stored in the scene.
-    const threshold = confirmed || fromLocation;
+    const threshold: string = confirmed || fromLocation;
     if (/(?:문을?\s*(?:열고|열어|밀어\s*열고))?.{0,30}(?:안으로\s*(?:들어가|들어서|걸어)|발(?:을)?\s*들여)/.test(action)
       && /(?:문\s*앞|입구)/.test(threshold)) {
       confirmed = threshold.replace(/\s*(?:문\s*앞|입구).*$/, "");
