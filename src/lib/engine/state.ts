@@ -350,7 +350,7 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
     // Merely packing a bag or glancing aside rarely warrants permanent
     // memory unless an actual relationship or plot event occurred.
     if (mc.kind === "observed_event"
-      && /(?:상대|사용자|학생).{0,20}(?:가방을?s*챙|고개를?s*돌|잠깐s*앉|자리에s*앉|휴대폰을?s*확인)/.test(text)
+      && /(?:상대|사용자|학생).{0,20}(?:가방을?\s*챙|고개를?\s*돌|잠깐\s*앉|자리에\s*앉|휴대폰을?\s*확인)/.test(text)
       && !/사야카와|함께|도와|나눠|돌려줬|넘어|다쳐|다툼|사과|밀치|때려/.test(text)) {
       corrections.push("일상적인 순간 행동은 장기 사건 기억에서 제외");
       continue;
