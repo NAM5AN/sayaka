@@ -1,6 +1,6 @@
 import { DISCLOSABLE_IDS, LEAK_GUARDS, loreById } from "./canon";
 import { dialogueText, allText } from "./format";
-import { groundedSharedSceneMove, groundedPlayerMove, groundedSayakaDeparture, sayakaActuallyReturned, userForcesSayakaState, playerAuthoredDestination, playerOpensSightline } from "./scene";
+import { groundedSharedSceneMove, groundedPlayerMove, groundedSayakaDeparture, sayakaActuallyReturned, userForcesSayakaState, playerAuthoredDestination, playerOpensSightline, sameSpecificPlace } from "./scene";
 import { applyPrivateEvent, getOffscreen, willReunite } from "./offscreen";
 import { applyInitiative } from "./initiative";
 import type {
@@ -155,7 +155,7 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
       confirmedSharedMove = true;
     } else if (pluginFidelity && groundedPlayerMove(ctx.userText, proposedLocation)) {
       scene.location = proposedLocation;
-      playerMovedAlone = ctx.scene.sayaka.present;
+      playerMovedAlone = ctx.scene.sayaka.present && !sameSpecificPlace(proposedLocation, ctx.scene.sayaka.position);
     } else {
       corrections.push("공유 장소 변경 거부: 플레이어의 실제 이동 근거가 없음");
     }

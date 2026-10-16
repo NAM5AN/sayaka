@@ -141,6 +141,9 @@ export function checkVisibility(
   const playerMovedAway = ctx.scene.sayaka.present && turn.sayaka_present !== "leaves"
     && !!turn.scene_location && turn.scene_location !== ctx.scene.location
     && groundedPlayerMove(ctx.userText, turn.scene_location)
+    // Approaching Sayaka's known room from its threshold is not abandoning
+    // her, even though she doesn't have to walk alongside the player.
+    && !sameSpecificPlace(turn.scene_location, ctx.scene.sayaka.position)
     && !/(?:사야카|그녀|소녀).{0,60}(?:함께|같이|옆에서).{0,60}(?:도착|걸어|들어가)/.test(segments.map((s) => s.text).join(" "));
   if (playerMovedAway && segments.some((s) =>
     s.kind === "dialogue" || (s.kind === "narration" && remoteNarration.test(s.text) && !visibleAbsent.test(s.text))

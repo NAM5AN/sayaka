@@ -70,6 +70,30 @@ describe("3단계: 실제 사용자 행동과 사야카 상태를 분리한다",
     expect(groundedPlayerMove(text,"학교 매점")).toBe(true);
     expect(playerAuthoredDestination("(나는 문을 열고 안으로 들어갔다.)","매점 문 앞")).toBe("매점");
   });
+  it("매점 문 앞에서 실제로 재회한 뒤 안으로 들어와도 사야카를 다시 숨기지 않는다",()=>{
+    const ctx=ctxFor({promptVersion:PROMPT_VERSION,
+      userText:"(나는 매점 안으로 발을 들여 문가에 서서 안쪽을 둘러본다.)"});
+    ctx.scene.location="매점 문 앞";
+    ctx.scene.sayaka.present=true;
+    ctx.scene.sayaka.position="매점 안쪽";
+    ctx.scene.sayaka.offscreen={location:"매점 안쪽",carried:["빵 봉지"],events:[]};
+    const visible=[{kind:"narration" as const,text:"사야카가 매점 안쪽에서 빵 봉지를 옆에 두고 돌아본다."},
+      {kind:"dialogue" as const,text:"거기 말고 안으로 와."}];
+    const t=turn({scene_location:"매점",sayaka_present:"stays",segments:visible});
+    expect(validateTurn({ctx,turn:t,segments:visible,hadSpeakerLabel:false})
+      .some(issue=>issue.code==="offscreen_spoiler")).toBe(false);
+    const applied=applyTurn(ctx,t,visible);
+    expect(applied.scene.location).toBe("매점");
+    expect(applied.scene.sayaka.present).toBe(true);
+    expect(applied.scene.sayaka.position).toBe("매점 안쪽");
+  });
+  it("반대로 사야카와 다른 장소로 혼자 떠나면 원격 대사는 차단한다",()=>{
+    const ctx=ctxFor({promptVersion:PROMPT_VERSION,userText:"(나는 학교 매점으로 걸어가 도착한다.)"});
+    const visible=[{kind:"dialogue" as const,text:"거기서 뭐 해?"}];
+    const t=turn({scene_location:"학교 매점",sayaka_present:"stays",segments:visible});
+    expect(validateTurn({ctx,turn:t,segments:visible,hadSpeakerLabel:false})
+      .some(issue=>issue.code==="offscreen_spoiler")).toBe(true);
+  });
   it("말로 목적지만 제안해도, 사야카가 움직인다고 적어도 사용자 이동이 아니다",()=>{
     expect(groundedPlayerMove("매점 갈까?","학교 매점")).toBe(false);
     expect(groundedPlayerMove("(사야카는 매점으로 걸어간다.)","학교 매점")).toBe(false);
