@@ -113,6 +113,38 @@ describe("API 라우트", () => {
     expect(b.error.retryable).toBe(false);
   });
 
+  it("현실 시간 스위치 PATCH: 로그인·동일 출처·형식 검증 및 채팅방별 저장", async () => {
+    const cookie = await loginAs(ENV.APP_PASSWORD);
+    const created = await (await chats.POST(req("/api/chats", { method: "POST", body: { openingId: "quiet_v030" }, cookie }))).json();
+    const id = created.chat.id as string;
+    expect(created.settings.realTimeEnabled).toBe(false);
+    const path = `/api/chats/${id}`;
+
+    const unauthed = await chat.PATCH(req(path, { method: "PATCH", body: { realTimeEnabled: true } }), params(id));
+    expect(unauthed.status).toBe(401);
+
+    const forged = await chat.PATCH(req(path, { method: "PATCH", body: { realTimeEnabled: true }, origin: "https://evil.example", cookie }), params(id));
+    expect(forged.status).toBe(403);
+
+    const wrongType = await chat.PATCH(req(path, { method: "PATCH", body: { realTimeEnabled: "true" }, cookie }), params(id));
+    expect(wrongType.status).toBe(400);
+
+    const injected = await chat.PATCH(req(path, { method: "PATCH", body: { realTimeEnabled: true, trust: 5 }, cookie }), params(id));
+    expect(injected.status).toBe(400);
+
+    const on = await chat.PATCH(req(path, { method: "PATCH", body: { realTimeEnabled: true }, cookie }), params(id));
+    expect(on.status).toBe(200);
+    expect((await on.json()).settings.realTimeEnabled).toBe(true);
+    const view = await (await chat.GET(req(path, { cookie }), params(id))).json();
+    expect(view.settings.realTimeEnabled).toBe(true);
+    expect(view.admin).toBeUndefined();
+
+    const off = await chat.PATCH(req(path, { method: "PATCH", body: { realTimeEnabled: false }, cookie }), params(id));
+    expect(off.status).toBe(200);
+    expect((await (await chat.GET(req(path, { cookie }), params(id))).json()).settings.realTimeEnabled).toBe(false);
+    await chat.DELETE(req(path, { method: "DELETE", cookie }), params(id));
+  });
+
   it("전체 삭제는 확인 값이 있어야 한다", async () => {
     const cookie = await loginAs(ENV.APP_PASSWORD);
     const no = await chats.DELETE(req("/api/chats", { method: "DELETE", body: {}, cookie }));
