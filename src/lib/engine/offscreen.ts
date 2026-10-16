@@ -1,5 +1,5 @@
 import { LEAK_GUARDS } from "./canon";
-import { groundedReunion, groundedPlayerMove, sameSpecificPlace, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
+import { groundedReunion, groundedPlayerMove, playerAuthoredDestination, sameSpecificPlace, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
 import type { ModelTurn, OffscreenProposal, OffscreenState, SceneState, Segment, TurnContext } from "./types";
 
 const empty = (): OffscreenProposal => ({ action: "", location: "", carried_add: [], carried_remove: [] });
@@ -15,7 +15,10 @@ export function getOffscreen(scene: SceneState): OffscreenState {
 
 export function willReunite(ctx: Pick<TurnContext, "userText" | "scene">, turn: ModelTurn, segments: Segment[]): boolean {
   if (ctx.scene.sayaka.present || turn.sayaka_present === "leaves") return false;
-  const next = turn.scene_location?.trim() || ctx.scene.location;
+  const authored = playerAuthoredDestination(ctx.userText);
+  // The user can stand at an entrance while the model proposes "inside".
+  const next = authored && /(?:문\s*앞|입구)/.test(authored)
+    ? authored : (turn.scene_location?.trim() || authored || ctx.scene.location);
   const known = getOffscreen(ctx.scene).location || ctx.scene.sayaka.position;
   return groundedReunion(ctx.userText, next, known, segments, ctx.scene.location);
 }

@@ -142,8 +142,11 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   let playerMovedAlone = false;
   // A model can omit scene_location. A completed, player-authored arrival
   // still changes the player's own viewpoint when the destination is explicit.
-  const proposedLocation = turn.scene_location?.trim()
-    || (pluginFidelity ? playerAuthoredDestination(ctx.userText) : null) || "";
+  const playerLocation = pluginFidelity ? playerAuthoredDestination(ctx.userText) : null;
+  // Being at the shop door is not the same thing as entering its interior.
+  // A model-suggested location must never override this explicit boundary.
+  const proposedLocation = playerLocation && /(?:문\s*앞|입구)/.test(playerLocation)
+    ? playerLocation : (turn.scene_location?.trim() || playerLocation || "");
   if (proposedLocation && proposedLocation !== ctx.scene.location) {
     const shared = ctx.scene.sayaka.present
       && groundedSharedSceneMove(ctx.userText, proposedLocation, segments, turn.sayaka_position);
