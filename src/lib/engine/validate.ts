@@ -2,6 +2,7 @@ import { LEAK_GUARDS, LORE, loreById } from "./canon";
 import { allText, dialogueText } from "./format";
 import { overlyTeacherlyReply } from "./voice";
 import { checkInitiative } from "./initiative";
+import { checkPrivateEvent, checkVisibility } from "./offscreen";
 import type { ModelTurn, Segment, TurnContext, ValidationIssue } from "./types";
 
 /**
@@ -186,7 +187,11 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
     .filter((m) => m.role === "user")
     .slice(-3)
     .some((m) => /꼬맹|꼬마|바보|멍청|못생|짜증|닥쳐|꺼져|만만|약올|놀리/.test(m.body));
-  const provoked = PROVOCATION_MOVES.has(turn.user_move) || recentProvocations || ctx.relationship.annoyance >= 3;
+  const forcedContact = /(?:붙잡|끌어|끌고|밀치|밀어붙|때리|때렸|때린|뺨|발로\s*차|넘어뜨|후려|주먹|강제로|억지로\s*끌)/.test(user)
+    || ctx.history.filter((m) => m.role === "user").slice(-2)
+      .some((m) => /(?:붙잡|끌어|밀치|때리|뺨|발로\s*차)/.test(m.body));
+  const provoked = PROVOCATION_MOVES.has(turn.user_move) || recentProvocations
+    || forcedContact || ctx.relationship.annoyance >= 3;
   if (turn.emotion === "angry" && !provoked) {
     issues.push({
       code: "unprovoked_anger",
@@ -205,7 +210,23 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
   // 9) Preserve the lively back-and-forth rhythm of the original plugin without forcing verbosity.
   const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   if (pluginFidelity) {
-    const initiativeCheck = checkInitiative(ctx, turn.initiative, segments);
+    const visibility = checkVisibility(ctx, turn, segments);
+    if (visibility.leaks) {
+      issues.push({
+        code: "offscreen_spoiler", severity: "block",
+        fix: (visibility.reason ?? "비공개 장면이 노출됐다") + " 플레이어가 직접 볼 수 있는 장면만 segments에 쓰고, 사야카의 숨은 행동은 offscreen_event에만 기록한다.",
+      });
+    }
+    const privateCheck = checkPrivateEvent(ctx, turn, segments);
+    if (!privateCheck.valid) {
+      issues.push({
+        code: "offscreen_evidence", severity: "log",
+        fix: privateCheck.reason ?? "비공개 행동을 확인하지 못했다.",
+      });
+    }
+    const hiddenEvidence = privateCheck.valid && privateCheck.action && !visibility.leaks
+      ? [{ kind: "narration" as const, text: privateCheck.action }] : [];
+    const initiativeCheck = checkInitiative(ctx, turn.initiative, [...segments, ...hiddenEvidence]);
     if (turn.action_intent === "initiate" && (!turn.initiative || turn.initiative.mode === "none")) {
       issues.push({
         code: "empty_initiation", severity: "retry",
