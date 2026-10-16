@@ -192,6 +192,7 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   } else if (ctx.scene.sayaka.present) {
     scene.sayaka.present = true;
     if (turn.sayaka_position) scene.sayaka.position = turn.sayaka_position;
+    else if (confirmedSharedMove) scene.sayaka.position = scene.location;
   } else {
     scene.sayaka.present = false;
     // Model-authored public position updates are never accepted in absent
