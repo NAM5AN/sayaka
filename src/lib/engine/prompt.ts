@@ -3,6 +3,7 @@ import { STABLE_INSTRUCTIONS_V020 } from "./prompt-v020";
 import { STABLE_INSTRUCTIONS_PLUGIN_V020 } from "./prompt-plugin-v020";
 import { FULL_PRIVATE_CANON } from "./private-canon";
 import { VOICE_INSTRUCTIONS, voicePatternNotes } from "./voice";
+import { realTimePromptBlock } from "./time-flow";
 import { AUTONOMY_INSTRUCTIONS, initiativeStateBlock } from "./initiative-prompt";
 import type { SelectedLore } from "./lore";
 import type { PatternReport } from "./patterns";
@@ -242,6 +243,8 @@ export function buildPrompt(params: {
   if (omitted > 0) dyn.push(`(이전 대화 ${omitted}개는 원문 대신 아래 '이 대화방의 기억'으로 요약되어 있다.)`);
   const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   dyn.push(sceneBlock(ctx.scene, pluginFidelity, ctx.turnIndex));
+  const realTimeHint = realTimePromptBlock(ctx.scene);
+  if (realTimeHint) dyn.push(realTimeHint);
   if (pluginFidelity) dyn.push(initiativeStateBlock(ctx.scene));
   if (pluginFidelity) dyn.push(
     "# 장소와 동행의 경계\n공유 장면 장소는 사용자와 사야카가 실제로 함께 있는 위치다. 제안만 한 장소로 이동했다고 확정하지 않는다. " +
