@@ -44,7 +44,7 @@ describe("플러그인 교류·장면 상태·정보 공개 회귀", () => {
       assistant("꽃병 쪽으로 시선을 돌린다.", 1),
       assistant("사야카가 다시 꽃병을 바라본다.", 2),
     ], PROMPT_VERSION);
-    expect(report.notes.join(" ")).toContain("꽃병");
+    expect(report.notes.join(" ")).toContain("같은 사물을 바라보는");
   });
 
   it("첫 인사를 기계적으로 따라 하기만 하는 한 줄을 검수한다", () => {
