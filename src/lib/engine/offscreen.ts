@@ -40,6 +40,32 @@ function namedItemInAction(item: string, action: string): boolean {
   return tokens.length > 0 && tokens.some((s) => action.includes(s) || (s.length >= 2 && action.includes(s.slice(0, -1))));
 }
 
+export interface SanitizedPrivateInventory {
+  turn: ModelTurn;
+  rejectedItems: string[];
+}
+
+/**
+ * Inventory claims are independently verifiable from the private action.
+ * An ungrounded item should be dropped WITHOUT discarding an otherwise
+ * factual private activity and its separately verified initiative evidence.
+ */
+export function sanitizePrivateInventory(turn: ModelTurn): SanitizedPrivateInventory {
+  const p = turn.offscreen_event;
+  if (!p?.action.trim()) return { turn, rejectedItems: [] };
+  const adds = p.carried_add.filter((item) => namedItemInAction(item, p.action) && acquireVerb.test(p.action));
+  const removes = p.carried_remove.filter((item) => namedItemInAction(item, p.action) && releaseVerb.test(p.action));
+  const rejectedItems = [
+    ...p.carried_add.filter((item) => !adds.includes(item)),
+    ...p.carried_remove.filter((item) => !removes.includes(item)),
+  ];
+  if (rejectedItems.length === 0) return { turn, rejectedItems };
+  return {
+    turn: { ...turn, offscreen_event: { ...p, carried_add: adds, carried_remove: removes } },
+    rejectedItems,
+  };
+}
+
 export interface PrivateEventCheck {
   valid: boolean;
   reason: string | null;

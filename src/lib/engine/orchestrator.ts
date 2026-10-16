@@ -15,6 +15,7 @@ import { resetRealTimeCheckpoint } from "./time-flow";
 import type { ModelTurn, Segment, TurnContext, ValidationIssue } from "./types";
 import { validateTurn } from "./validate";
 import { groundedPlayerViewRecovery } from "./viewpoint-recovery";
+import { sanitizePrivateInventory } from "./offscreen";
 
 export type ServiceErrorCode =
   | "NOT_FOUND"
@@ -275,6 +276,7 @@ export class SayakaService {
       let lastBlockIssues: ValidationIssue[] = [];
       let allBlockIssues: ValidationIssue[] = [];
       let recoveredPlayerView = false;
+      let droppedInventoryClaims: string[] = [];
       let usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
       let modelName = this.d.llm.model;
       let real = true;
@@ -294,6 +296,11 @@ export class SayakaService {
         let turn: ModelTurn;
         try {
           turn = parseModelTurn(res.rawJson);
+          if (ctx.promptVersion?.includes("actor-v2")) {
+            const sanitized = sanitizePrivateInventory(turn);
+            turn = sanitized.turn;
+            droppedInventoryClaims = sanitized.rejectedItems;
+          }
         } catch (e) {
           if (e instanceof ModelOutputError) {
             lastSchemaError = e;
@@ -328,6 +335,7 @@ export class SayakaService {
           if (!check.some((issue) => issue.severity === "block")) {
             accepted = { turn: recovery.turn, segments: norm.segments, issues: check };
             recoveredPlayerView = true;
+            droppedInventoryClaims = [];
             real = false;
           }
         }
@@ -390,9 +398,14 @@ export class SayakaService {
         loreModes: Object.fromEntries(lore.map((l) => [l.id, `${l.tier}:${l.mode}`])),
         issues: accepted.issues.map((i) => ({ code: i.code, severity: i.severity, detail: i.detail })),
         firstAttemptIssues: attempts > 1 ? firstIssues.map((i) => ({ code: i.code, severity: i.severity, detail: i.detail })) : [],
-        corrections: recoveredPlayerView
-          ? [...applied.corrections, "모델의 비공개 장면 노출을 차단하고 사용자에게 보이는 장면만 서버가 복구함"]
-          : applied.corrections,
+        corrections: [
+          ...applied.corrections,
+          ...(droppedInventoryClaims.length
+            ? ["비공개 행동에서 실제 근거 없는 소지품 증가·감소를 제거함: " + droppedInventoryClaims.join(", ")]
+            : []),
+          ...(recoveredPlayerView
+            ? ["모델의 비공개 장면 노출을 차단하고 사용자에게 보이는 장면만 서버가 복구함"] : []),
+        ],
         ...(recoveredPlayerView ? {
           recoveredPlayerView: true,
           recoveredFrom: [...new Set(allBlockIssues.map((issue) => issue.code))],
