@@ -81,8 +81,11 @@ function asksOnlyAboutFamilyAffection(userText: string): boolean {
 function sceneTopics(scene: SceneState, pluginFidelity = false): string[] {
   const t: string[] = [];
   const flowerVisible = scene.items.vase.location === "windowsill" || scene.items.vase.location === "in_sayaka_hand";
-  const flowerStillFocus = /꽃|꽃병|꽃잎|화단/.test(scene.sayaka.goal + " " + scene.sayaka.current_action);
-  if (flowerVisible && (!pluginFidelity || flowerStillFocus)) t.push("flower");
+  // First-scene scenery must not become a permanent preference trigger.
+  // Later turns get flower lore only when the user explicitly brings it up
+  // or Sayaka starts her own concrete, persistent flower-related activity.
+  const chosenFlowerActivity = /꽃|꽃병|꽃잎|화단|정원/.test(scene.sayaka.activity?.objective ?? "");
+  if (flowerVisible && (!pluginFidelity || scene.version === 1 || chosenFlowerActivity)) t.push("flower");
   if (!scene.sayaka.noticed_user) t.push("quiet");
   if (scene.items.pocket_watch.location !== "inside_kinchaku" || scene.kinchaku_open) t.push("watch");
   if (scene.items.mychew.location !== "in_sayaka_bag") t.push("mychew");
