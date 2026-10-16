@@ -173,7 +173,7 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
     const knownPosition = ctx.scene.sayaka.position;
     const reunitedAtNamedPlace = followsAfterDeparture &&
       (proposedLocation.match(/[가-힣A-Za-z]{2,}/g) ?? [])
-        .some((word) => word.length > 2 && knownPosition.includes(word));
+        .some((word) => word.length >= 2 && !["학교", "근처", "동네", "주변", "앞쪽"].includes(word) && knownPosition.includes(word));
     if (groundedSharedSceneMove(ctx.userText, proposedLocation, segments, turn.sayaka_position)
       || reunitedAtNamedPlace) {
       scene.location = proposedLocation;
