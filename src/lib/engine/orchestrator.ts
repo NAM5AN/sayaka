@@ -92,7 +92,7 @@ export class SayakaService {
     return this.d.repo;
   }
 
-  async createChat(ownerId: string, openingId?: string | null): Promise<{ chat: ChatSummaryDto; messages: MessageDto[] }> {
+  async createChat(ownerId: string, openingId?: string | null): Promise<{ chat: ChatSummaryDto; messages: MessageDto[]; settings: { realTimeEnabled: boolean } }> {
     const opening = getOpening(openingId);
     const now = new Date();
     const title = `새 대화 (${now.getMonth() + 1}월 ${now.getDate()}일)`;
@@ -107,7 +107,7 @@ export class SayakaService {
       scene: initialScene(opening),
       relationship: initialRelationship(),
     });
-    return { chat: toChatDto(chat), messages: messages.map(toMessageDto) };
+    return { chat: toChatDto(chat), messages: messages.map(toMessageDto), settings: { realTimeEnabled: false } };
   }
 
   async listChats(ownerId: string): Promise<ChatSummaryDto[]> {
@@ -117,8 +117,15 @@ export class SayakaService {
   async getChat(ownerId: string, chatId: string, admin: boolean) {
     const chat = await this.d.repo.getChat(ownerId, chatId);
     if (!chat) throw new ServiceError("NOT_FOUND", "대화방을 찾을 수 없어요.");
-    const messages = await this.d.repo.getMessages(chatId);
-    const base = { chat: toChatDto(chat), messages: messages.map(toMessageDto) };
+    const [messages, realTimeEnabled] = await Promise.all([
+      this.d.repo.getMessages(chatId),
+      this.d.repo.getRealTimeEnabled(ownerId, chatId),
+    ]);
+    const base = {
+      chat: toChatDto(chat),
+      messages: messages.map(toMessageDto),
+      settings: { realTimeEnabled: realTimeEnabled === true },
+    };
     if (!admin) return base;
     const [diagnostics, state] = await Promise.all([this.d.repo.diagnosticsFor(chatId), this.d.repo.loadState(chatId)]);
     return {
@@ -135,6 +142,14 @@ export class SayakaService {
         },
       },
     };
+  }
+
+  /** User-visible per-room experimental wall-clock setting. */
+  async setRealTimeEnabled(ownerId: string, chatId: string, enabled: boolean): Promise<{ realTimeEnabled: boolean }> {
+    const updated = await this.d.repo.setRealTimeEnabled(ownerId, chatId, enabled);
+    if (updated === "not_found") throw new ServiceError("NOT_FOUND", "대화방을 찾을 수 없어요.");
+    if (updated === "busy") throw new ServiceError("BUSY", "응답을 생성하는 동안에는 시간 설정을 바꿀 수 없어요.");
+    return { realTimeEnabled: enabled };
   }
 
   /** 한 턴의 입력 재료: DB 상태 → 문맥, 이번 턴에 보낼 설정, 반복 패턴 진단 */
