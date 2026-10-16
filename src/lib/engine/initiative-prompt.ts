@@ -8,7 +8,7 @@ export const AUTONOMY_INSTRUCTIONS = "# 사야카의 자율 행동 — 준비·�
 export function initiativeStateBlock(scene: SceneState): string {
   const activity = scene.sayaka.activity ?? null;
   const base = ["# 사야카 자신의 용무 (채팅방별 서버 기록)"];
-  if (!activity) base.push("- 지금 진행 중인 장기 목표: 없음. 앞서 하던 꽃병 관찰이나 잠깐의 몸짓을 의무처럼 반복하지 않는다.");
+  if (!activity) base.push("- 지금 진행 중인 장기 목표: 없음. 첫 장면의 관심 대상이나 잠깐의 몸짓을 의무처럼 반복하지 않는다.");
   else {
     base.push("- 스스로 선택한 목표: " + activity.objective);
     base.push("- 진행 상태: " + (activity.phase === "acting" ? "행동 중" : "본인 판단으로 기다리는 중"));
