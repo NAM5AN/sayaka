@@ -285,6 +285,10 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
       corrections.push(`관계 ${sig.axis}: 이유 없는 변화 → 무시`);
       continue;
     }
+    if (pluginFidelity && !ctx.scene.sayaka.present && !reunited) {
+      corrections.push("사야카가 떨어져 있으므로 목격하지 못한 사용자 행동으로 관계를 변경하지 않음");
+      continue;
+    }
     let delta = sig.direction === "up" ? 1 : -1;
     const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
     if (pluginFidelity && userForcesSayakaState(ctx.userText) &&
@@ -340,6 +344,14 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
     const text = mc.text.trim();
     if (!text) continue;
     if (existingTexts.has(`${mc.kind}|${text}`)) continue;
+    // Sayaka has not heard the player speaking in another room.
+    // Do not persist otherwise grounded user claims or observations as
+    // knowledge of a character who is currently out of sight and earshot.
+    if (pluginFidelity && !ctx.scene.sayaka.present && !reunited
+      && ["user_claim", "observed_event", "sayaka_impression"].includes(mc.kind)) {
+      corrections.push("서로 다른 공간의 사용자 행동·말은 사야카의 기억으로 전파하지 않음");
+      continue;
+    }
     // Nothing Sayaka did in another location becomes an *observed* event
     // in the player's memory. These private facts live in scene.offscreen.
     if (!scene.sayaka.present && mc.kind === "observed_event"
@@ -392,7 +404,7 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   // proposes an over-paraphrased user_claim that fails its source match.
   const actualLiking = /(?:나는|난|내가|저는|전|제가)\s*(?:사야카|너|널|네가|니가)(?:를|이|가)?\s*좋아/.test(ctx.userText);
   const likingClaimText = "(상대 주장) 자신이 사야카를 좋아한다고 말했다.";
-  if (actualLiking && !ctx.memories.some((m) => m.kind === "user_claim" && m.text === likingClaimText)
+  if (actualLiking && (!pluginFidelity || ctx.scene.sayaka.present || reunited) && !ctx.memories.some((m) => m.kind === "user_claim" && m.text === likingClaimText)
       && !newMemories.some((m) => m.kind === "user_claim" && /사야카.{0,15}좋아|좋아.{0,15}사야카/.test(m.text))) {
     newMemories.push({ kind: "user_claim", target: "user_other", value: "좋아한다고 주장", text: likingClaimText });
   }
