@@ -130,8 +130,13 @@ export function checkVisibility(
       return { leaks: true, reason: "사야카와 떨어져 있는데 보이지 않는 곳의 행동을 지문으로 노출했다.", reunited };
     }
     const place = getOffscreen(ctx.scene).location;
+    // Merely mentioning a remote location is not a hidden scene. The player
+    // may legitimately narrate their OWN arrival at its doorway while Sayaka
+    // remains out of sight. An offscreen *activity* is the actual leak.
+    const anonymousOffscreenAction =
+      /(?:매점|진열대|계산대|물건|빵|가방|학교 밖).{0,60}(?:고르|계산|샀|살펴|챙겼|구매|결제|집어\s*들)/.test(text);
     if (concretePlaceWords(place).some((word) => text.includes(word))
-       && /(?:매점|진열대|계산대|물건|빵|가방|학교 밖).{0,60}(?:고르|계산|샀|살펴|도착|챙겼|들어갔)/.test(text)) {
+       && anonymousOffscreenAction) {
       return { leaks: true, reason: "플레이어가 볼 수 없는 별도 장소의 진행 과정을 출력했다.", reunited };
     }
   }
