@@ -30,7 +30,7 @@ describe("교류 품질: 사야카의 말투 회귀 방지", () => {
       text: "너 짐승 같아.", clientRequestId: rid(), admin: false,
     });
     expect(llm.prompts).toHaveLength(2);
-    expect(llm.lastPromptText()).toContain("teacherly_provocation");
+    expect(llm.lastPromptText()).toContain("어른처럼 예절을 가르치는");
     expect(result.assistantMessage.body).toContain("네 눈은 장식이야?");
     expect(result.assistantMessage.body).not.toContain("예의 좀 갖춰");
   });
