@@ -120,7 +120,7 @@ const COMPLETED_PLAYER_MOVE =
 
 function locationAnchors(place: string): string[] {
   return (place.match(/[가-힣A-Za-z0-9]{2,}/g) ?? [])
-    .filter((word) => !["학교", "동네", "근처", "주변", "바로", "여기", "저기", "안쪽", "앞쪽", "문앞", "입구", "복도", "방향"].includes(word));
+    .filter((word) => !["학교", "동네", "근처", "주변", "바로", "여기", "저기", "안쪽", "앞쪽", "문앞", "입구", "방향"].includes(word));
 }
 
 /** The model may propose a destination, but the user must author the trip. */

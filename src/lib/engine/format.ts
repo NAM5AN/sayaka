@@ -43,6 +43,35 @@ function splitMixed(text: string, defaultKind: Segment["kind"]): Segment[] {
   return out;
 }
 
+/**
+ * Some roleplay models put audible speech inside a narration field:
+ * "사야카는 등을 돌린다. \"나 간다.\" 문쪽으로 걸어간다."
+ * Extract the spoken beat as dialogue, preserving surrounding physical action.
+ * Object labels without a sentence (e.g. "마이쮸") are still narration.
+ */
+function splitNarrationSpeech(text: string): Segment[] {
+  const out: Segment[] = [];
+  const speech = /["“「]([^"”」\n]+)["”」]/g;
+  let cursor = 0;
+  let found = false;
+  let m: RegExpExecArray | null;
+  while ((m = speech.exec(text))) {
+    const phrase = m[1].trim();
+    const isUtterance = /[.!?。？！…]$/.test(phrase)
+      || /(?:해|했어|하자|가자|간다|갈게|됐어|싫어|뭐야|왜|응|아니)(?:[.。!?？！…]*)$/.test(phrase);
+    if (!isUtterance) continue;
+    found = true;
+    const before = text.slice(cursor, m.index).trim();
+    if (before) out.push({ kind: "narration", text: before });
+    out.push({ kind: "dialogue", text: phrase });
+    cursor = m.index + m[0].length;
+  }
+  if (!found) return [{ kind: "narration", text }];
+  const after = text.slice(cursor).trim();
+  if (after) out.push({ kind: "narration", text: after });
+  return out;
+}
+
 export interface NormalizeResult {
   segments: Segment[];
   hadSpeakerLabel: boolean;
@@ -60,7 +89,7 @@ export function normalizeSegments(raw: Segment[]): NormalizeResult {
       text = text.replace(SPEAKER_LABEL, "");
     }
     const kind: Segment["kind"] = seg.kind === "narration" ? "narration" : "dialogue";
-    const parts = kind === "narration" ? [{ kind, text: stripWrapping(text, ["(", "（"], [")", "）"]) }] : splitMixed(text, kind);
+    const parts = kind === "narration" ? splitNarrationSpeech(stripWrapping(text, ["(", "（"], [")", "）"])) : splitMixed(text, kind);
     for (const p of parts) {
       let t = p.text.trim();
       if (p.kind === "dialogue") {
