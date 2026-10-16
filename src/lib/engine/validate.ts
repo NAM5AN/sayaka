@@ -1,6 +1,7 @@
 import { LEAK_GUARDS, LORE, loreById } from "./canon";
 import { allText, dialogueText } from "./format";
 import { overlyTeacherlyReply } from "./voice";
+import { checkInitiative } from "./initiative";
 import type { ModelTurn, Segment, TurnContext, ValidationIssue } from "./types";
 
 /**
@@ -204,6 +205,13 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
   // 9) Preserve the lively back-and-forth rhythm of the original plugin without forcing verbosity.
   const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   if (pluginFidelity) {
+    const initiativeCheck = checkInitiative(ctx, turn.initiative, segments);
+    if (!initiativeCheck.valid) {
+      issues.push({
+        code: "unverified_initiative", severity: "retry",
+        fix: (initiativeCheck.message ?? "자율 행동 상태를 확인하라") + " 실제 하지 않은 행동을 기록하지 말고, 조용한 턴이면 initiative.mode=none을 쓰라.",
+      });
+    }
     if (overlyTeacherlyReply(turn.user_move, user, segments)) {
       issues.push({ code: "teacherly_provocation", severity: "retry", fix: "상대의 무례한 행동에 어른처럼 예절을 가르치는 식으로만 대답했다. 사야카 본인의 순간적인 불쾌함·고집·질투·황당함 등 성격에 맞는 반응을 고민하되, 억지로 화내거나 욕을 붙일 필요는 없다." });
     }
