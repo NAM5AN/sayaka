@@ -1,6 +1,6 @@
 import { DISCLOSABLE_IDS, LEAK_GUARDS, loreById } from "./canon";
 import { dialogueText, allText } from "./format";
-import { groundedSharedSceneMove, groundedPlayerMove, groundedSayakaDeparture, sayakaActuallyReturned, userForcesSayakaState , playerAuthoredDestination } from "./scene";
+import { groundedSharedSceneMove, groundedPlayerMove, groundedSayakaDeparture, sayakaActuallyReturned, userForcesSayakaState, playerAuthoredDestination, playerOpensSightline } from "./scene";
 import { applyPrivateEvent, getOffscreen, willReunite } from "./offscreen";
 import { applyInitiative } from "./initiative";
 import type {
@@ -186,7 +186,12 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
     }
   } else if (reunited) {
     scene.sayaka.present = true;
-    scene.sayaka.position = turn.sayaka_position || scene.location;
+    // A threshold observation is not the same as Sayaka stepping outside.
+    const throughDoorway = playerOpensSightline(
+      ctx.userText, getOffscreen(ctx.scene).location || ctx.scene.sayaka.position, ctx.scene.location,
+    );
+    scene.sayaka.position = turn.sayaka_position
+      || (throughDoorway ? ctx.scene.sayaka.position : scene.location);
     scene.sayaka.offscreen.location = scene.sayaka.position;
     // Private events remain internal; only newly visible props may be
     // depicted in the current response.

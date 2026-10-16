@@ -14,6 +14,7 @@ import { applyTurn } from "./state";
 import { resetRealTimeCheckpoint } from "./time-flow";
 import type { ModelTurn, Segment, TurnContext, ValidationIssue } from "./types";
 import { validateTurn } from "./validate";
+import { groundedPlayerViewRecovery } from "./viewpoint-recovery";
 
 export type ServiceErrorCode =
   | "NOT_FOUND"
@@ -68,6 +69,9 @@ export interface TurnDiagnostics {
   disclosures: string[];
   relationship: { wariness: number; curiosity: number; annoyance: number; trust: number; stage: string };
   real: boolean;
+  /** A server-authored observational bridge used only after two offscreen blocks. */
+  recoveredPlayerView?: boolean;
+  recoveredFrom?: string[];
 }
 
 export interface SendResult {
@@ -269,6 +273,8 @@ export class SayakaService {
       let firstIssues: ValidationIssue[] = [];
       let accepted: { turn: ModelTurn; segments: Segment[]; issues: ValidationIssue[] } | null = null;
       let lastBlockIssues: ValidationIssue[] = [];
+      let allBlockIssues: ValidationIssue[] = [];
+      let recoveredPlayerView = false;
       let usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
       let modelName = this.d.llm.model;
       let real = true;
@@ -300,6 +306,7 @@ export class SayakaService {
         const issues = validateTurn({ ctx, turn, segments: norm.segments, hadSpeakerLabel: norm.hadSpeakerLabel });
         if (attempts === 1) firstIssues = issues;
         const blocking = issues.filter((i) => i.severity === "block");
+        allBlockIssues.push(...blocking);
         const retryable = issues.filter((i) => i.severity === "retry");
         if (blocking.length === 0 && (retryable.length === 0 || attempts >= MAX_ATTEMPTS)) {
           accepted = { turn, segments: norm.segments, issues };
@@ -307,6 +314,23 @@ export class SayakaService {
         }
         lastBlockIssues = blocking;
         correctionNotes = [...blocking, ...retryable].map((i) => i.fix);
+      }
+
+      // The player's completed movement is independent of the model response.
+      // Never expose either offscreen-spoiler draft; recovery is marked as stub.
+      if (!accepted && ctx.promptVersion?.includes("actor-v2")
+        && allBlockIssues.length > 0
+        && allBlockIssues.every((issue) => issue.code === "offscreen_spoiler")) {
+        const recovery = groundedPlayerViewRecovery(ctx);
+        if (recovery) {
+          const norm = normalizeSegments(recovery.segments);
+          const check = validateTurn({ ctx, turn: recovery.turn, segments: norm.segments, hadSpeakerLabel: false });
+          if (!check.some((issue) => issue.severity === "block")) {
+            accepted = { turn: recovery.turn, segments: norm.segments, issues: check };
+            recoveredPlayerView = true;
+            real = false;
+          }
+        }
       }
 
       if (!accepted) {
@@ -366,7 +390,13 @@ export class SayakaService {
         loreModes: Object.fromEntries(lore.map((l) => [l.id, `${l.tier}:${l.mode}`])),
         issues: accepted.issues.map((i) => ({ code: i.code, severity: i.severity, detail: i.detail })),
         firstAttemptIssues: attempts > 1 ? firstIssues.map((i) => ({ code: i.code, severity: i.severity, detail: i.detail })) : [],
-        corrections: applied.corrections,
+        corrections: recoveredPlayerView
+          ? [...applied.corrections, "모델의 비공개 장면 노출을 차단하고 사용자에게 보이는 장면만 서버가 복구함"]
+          : applied.corrections,
+        ...(recoveredPlayerView ? {
+          recoveredPlayerView: true,
+          recoveredFrom: [...new Set(allBlockIssues.map((issue) => issue.code))],
+        } : {}),
         patternNotes: patterns.notes,
         questionCount: countQuestions(accepted.segments),
         endsWithQuestion: endsWithQuestion(accepted.segments),
