@@ -55,6 +55,21 @@ describe("3단계: 실제 사용자 행동과 사야카 상태를 분리한다",
     expect(groundedPlayerMove(msg,"매점")).toBe(true);
     expect(playerAuthoredDestination("(매점 안으로 들어갈까 망설인다.)")).toBeNull();
   });
+  it("긴 행동지문의 부정된 실내 진입은 무시하고 문 앞에서 멈춘다",()=>{
+    const text="(나는 벤치에서 일어나 계단을 내려 매점 문 앞에 선다. 아직 매점 안에 들어가지는 않았다.)";
+    expect(playerAuthoredDestination(text)).toBe("매점 문 앞");
+    expect(groundedPlayerMove(text,"학교 매점")).toBe(false);
+    expect(groundedPlayerMove(text,"매점 문 앞")).toBe(true);
+    const forbidden="(나는 매점 안에 들어가지 않았다.)";
+    expect(playerAuthoredDestination(forbidden)).toBeNull();
+    expect(groundedPlayerMove(forbidden,"학교 매점")).toBe(false);
+  });
+  it("실제로 문을 열고 안쪽으로 들어간 이후에는 문 앞에서 실내로 위치가 진전된다",()=>{
+    const text="(나는 매점 문 앞에 선다. 문을 열고 안으로 들어갔다.)";
+    expect(playerAuthoredDestination(text)).toBe("매점");
+    expect(groundedPlayerMove(text,"학교 매점")).toBe(true);
+    expect(playerAuthoredDestination("(나는 문을 열고 안으로 들어갔다.)","매점 문 앞")).toBe("매점");
+  });
   it("말로 목적지만 제안해도, 사야카가 움직인다고 적어도 사용자 이동이 아니다",()=>{
     expect(groundedPlayerMove("매점 갈까?","학교 매점")).toBe(false);
     expect(groundedPlayerMove("(사야카는 매점으로 걸어간다.)","학교 매점")).toBe(false);

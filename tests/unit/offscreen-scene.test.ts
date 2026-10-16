@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PROMPT_VERSION } from "@/lib/engine/canon";
 import { applyTurn } from "@/lib/engine/state";
-import { checkPrivateEvent, checkVisibility, offscreenStateBlock } from "@/lib/engine/offscreen";
+import { checkPrivateEvent, checkVisibility, offscreenStateBlock, sanitizePrivateInventory } from "@/lib/engine/offscreen";
 import { groundedPlayerMove, sameSpecificPlace, groundedReunion } from "@/lib/engine/scene";
 import { buildPrompt, selectRuntimeInstructions } from "@/lib/engine/prompt";
 import { analyzePatterns } from "@/lib/engine/patterns";
@@ -154,6 +154,28 @@ describe("독립적인 공간과 실제 비공개 행동", () => {
   });
 });
 
+describe("비공개 행동과 소지품 갱신의 독립적인 근거 판정", () => {
+  it("근거 없는 소지품만 제거하고 적법한 비공개 행동과 자율 목표는 보존한다",()=>{
+    const scene=departed();
+    const ctx=ctxFor({promptVersion:PROMPT_VERSION,scene,userText:"(복도 벤치에 앉아 조용히 기다린다.)",turnIndex:2});
+    const action="사야카는 학교 매점에서 남은 빵 하나를 고르고 계산했다.";
+    const draft=turn({
+      segments:narr("복도에는 사야카의 모습이 보이지 않는다."),
+      offscreen_event:privateStep(action,"학교 매점",["빵 봉지","근거 없는 목걸이"]),
+      initiative:initiative("complete",action),
+    });
+    expect(checkPrivateEvent(ctx,draft,draft.segments).valid).toBe(false);
+    const sanitized=sanitizePrivateInventory(draft);
+    expect(sanitized.rejectedItems).toEqual(["근거 없는 목걸이"]);
+    expect(sanitized.turn.offscreen_event.carried_add).toEqual(["빵 봉지"]);
+    expect(checkPrivateEvent(ctx,sanitized.turn,draft.segments).valid).toBe(true);
+    const applied=applyTurn(ctx,sanitized.turn,draft.segments);
+    expect(applied.privateEventAccepted).toBe(true);
+    expect(applied.initiativeProgressed).toBe(true);
+    expect(applied.scene.sayaka.offscreen?.carried).toContain("빵 봉지");
+    expect(applied.scene.sayaka.offscreen?.carried).not.toContain("근거 없는 목걸이");
+  });
+});
 describe("원격 장면 스포일러를 절대 공개하지 않기", () => {
   it("사야카가 떨어져 있으면 매점 안 행동의 사용자 노출을 BLOCK한다", () => {
     const ctx = ctxFor({ promptVersion: PROMPT_VERSION, scene: departed(), userText: "(나는 벤치에 앉는다)" });
