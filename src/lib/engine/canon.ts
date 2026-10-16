@@ -3,7 +3,7 @@ import canonJson from "../../../data/character_canon.json";
 import openingsJson from "../../../data/openings.json";
 import type { Emotion, SceneState, Segment, RelationshipState } from "./types";
 
-export const PROMPT_VERSION = "web-0.1.0+plugin-v0.2.0-fidelity-fullcanon-voice-v2";
+export const PROMPT_VERSION = "web-0.1.0+plugin-v0.2.0-fidelity-fullcanon-voice-v2-autonomy-v1";
 export const CHARACTER_VERSION: string = (canonJson as { canonical_version: string }).canonical_version;
 
 export type Tier = "A" | "B" | "C" | "D";
@@ -83,6 +83,8 @@ export function initialScene(opening: Opening): SceneState {
       position: "창가 꽃병 앞",
       goal: "꽃병과 꽃을 살펴본다",
       current_action: opening.scene.current_action,
+      activity: null,
+      last_activity_outcome: "",
       emotion: opening.scene.emotion,
       noticed_user: opening.scene.noticed_user,
     },
