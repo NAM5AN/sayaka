@@ -92,17 +92,74 @@ export function userCatchesUpToSayaka(userText: string, segments: Segment[], kno
  * Sayaka is elsewhere. Only the player's own completed physical movement
  * can change that location. No assistant-authored player action is evidence.
  */
+/**
+ * Interpret movement from the player's own narrated actions, not an arbitrary
+ * destination suggested by the model. A quotation, a proposed trip and an
+ * instruction about Sayaka's actions cannot move the player's viewpoint.
+ *
+ * The movement verbs are only a grammatical signal. There is deliberately no
+ * allow-list of destinations: locations are grounded by words in the player's
+ * own narration.
+ */
+function playerActionClauses(text: string): string[] {
+  const actions = Array.from(text.matchAll(/[(（]([^()（）]{1,350})[)）]/g), (match) => match[1].trim());
+  const spoken = text.replace(/[(（][^()（）]*[)）]/g, " ").split(/[.!?。\n]/)
+    .map((part) => part.trim())
+    .filter((part) => /(?:^|[\s,，])(?:나는|난|내가|나도|우리는|우리도|둘이서|사야카를\s*따라|그녀를\s*따라)/.test(part));
+  return [...actions, ...spoken].filter((part) => {
+    if (!part || /^["“'「]/.test(part)) return false;
+    // "사야카를 따라" makes Sayaka the object of the player's movement;
+    // "사야카는 걸어간다" cannot make that movement the player's.
+    if (/^(?:사야카|그녀|소녀|다른\s*학생|그\s*학생)(?:는|가|의)(?:\s|[,，])/.test(part)) return false;
+    return true;
+  });
+}
+
+const COMPLETED_PLAYER_MOVE =
+  /(?:걸어\s*(?:가|왔|나가|들어가|내려가|올라가)|걸어가|걸어왔|걷다|걷는다|걷기\s*시작|뛰어(?:가|왔)|따라(?:가|갔|왔)|쫓아(?:가|갔)|내려(?:가|갔|간|와)|올라(?:가|갔|간|와)|계단(?:을|으로)?\s*내려|계단(?:을|으로)?\s*올라|도착(?:했|한다|하여|해서|해|한)|들어(?:간|갔|간다|섰|서|선다)|나(?:왔|간다|갔|섰|선다)|이동(?:했|한다)|발(?:을)?\s*들였|(?:문|입구)\s*앞에\s*(?:선다|섰|서서|도착)|문(?:을)?\s*열고\s*(?:안(?:으로)?\s*들어|들어서))/;
+
+function locationAnchors(place: string): string[] {
+  return (place.match(/[가-힣A-Za-z0-9]{2,}/g) ?? [])
+    .filter((word) => !["학교", "동네", "근처", "주변", "바로", "여기", "저기", "안쪽", "앞쪽", "문앞", "입구", "복도", "방향"].includes(word));
+}
+
+/** The model may propose a destination, but the user must author the trip. */
 export function groundedPlayerMove(userText: string, nextLocation: string): boolean {
   const target = nextLocation.trim();
   if (!target || target.length > 80 || /[\n\r]/.test(target)) return false;
-  const explicit = /(?:^|[\s(（])(?:나는|난|내가|나도|우리(?:는|가|도)?|둘이(?:서|는)?|사야카를\s*따라|그녀를\s*따라)/.test(userText);
-  const implicit = /(?:^|\n)\s*[(（](?!\s*(?:사야카|그녀|소녀|다른\s*학생)(?:는|가|의))[^)）]{0,140}(?:도착|들어간|들어갔|걸어가|따라가|나왔다|나간다|내려간|올라간)[)）]/.test(userText);
-  const motion = /(?:도착|들어갔|들어간다|걸어가|걸어왔|걸어들|따라갔|따라간|따라가|나섰|나왔다|나간다|내려갔|내려간|올라갔|올라간|뛰어갔|뛰어간|이동했)/.test(userText);
-  if (!(explicit || implicit) || !motion) return false;
-  if (/^\s*[(（]?\s*사야카(?:는|가|를)/.test(userText) && !/(?:나는|난|내가|나도|우리|함께)/.test(userText)) return false;
-  const words = (target.match(/[가-힣A-Za-z]{2,}/g) ?? [])
-    .filter((w) => !["학교", "동네", "근처", "주변", "바로", "여기", "저기", "안쪽", "앞쪽"].includes(w));
-  return words.length > 0 && words.some((w) => userText.includes(w));
+  const anchors = locationAnchors(target);
+  if (!anchors.length) return false;
+  return playerActionClauses(userText).some((action) =>
+    COMPLETED_PLAYER_MOVE.test(action)
+    && anchors.some((word) => action.includes(word))
+    && !/(?:가려고만|가고\s*싶|갈\s*예정|도착하려다|가볼까|간다고\s*했)/.test(action));
+}
+
+/**
+ * Recover an explicit arrival from the player's own narration even if the
+ * model forgot scene_location. It never guesses a new location from a desire.
+ */
+export function playerAuthoredDestination(userText: string): string | null {
+  for (const action of playerActionClauses(userText)) {
+    if (!COMPLETED_PLAYER_MOVE.test(action)) continue;
+    if (/(?:도착하려다|가려고만|가고\s*싶)/.test(action)) continue;
+    const doorway = action.match(/([가-힣A-Za-z0-9]{2,})\s*(?:문|출입문|입구)\s*앞에\s*(?:선다|섰|서서|도착)/);
+    if (doorway) return doorway[1] + " 문 앞";
+    const at = action.match(/([가-힣A-Za-z0-9]{2,})(?:에|으로|까지)\s*(?:도착(?:했|한다|해서|한)|들어(?:갔|간다|선다)|걸어(?:갔|가)|뛰어(?:갔|가))/);
+    if (at && locationAnchors(at[1]).length) return at[1];
+  }
+  return null;
+}
+
+/**
+ * Opening a door and looking inside creates a real line of sight, NOT an
+ * automatic claim that the player walked into the building.
+ */
+export function playerOpensSightline(userText: string, knownPlace: string, fromLocation: string): boolean {
+  if (!sameSpecificPlace(knownPlace, fromLocation)) return false;
+  return playerActionClauses(userText).some((action) =>
+    /(?:문|출입문|문짝)(?:을|를)?\s*(?:열고|열어|연다|열었다|밀어\s*열고|밀고)/.test(action)
+    && /(?:안쪽|내부|안을|안으로|속)을?\s*(?:둘러보|들여다보|바라보|살펴보|보았다|본다)|(?:안쪽|내부|안을|속).{0,20}(?:둘러|살피|바라|본다)/.test(action));
 }
 
 /** Check location equivalence without making generic 'school' a match. */
@@ -114,7 +171,7 @@ export function sameSpecificPlace(a: string, b: string): boolean {
   return aa.some((x) => bb.some((y) => x === y || (x.length >= 3 && y.includes(x)) || (y.length >= 3 && x.includes(y))));
 }
 
-/** A narrated direct encounter plus a player-authored arrival, or Sayaka's own return. */
+/** A narrated direct encounter, with a grounded arrival or line of sight. */
 export function groundedReunion(
   userText: string,
   nextPlayerLocation: string,
@@ -126,11 +183,12 @@ export function groundedReunion(
   const spoken = segments.filter((s) => s.kind === "dialogue").map((s) => s.text).join(" ");
   const visible = segments.filter((s) => s.kind === "narration").map((s) => s.text).join(" ");
   const encounter = /(?:사야카|소녀|그녀).{0,90}(?:마주|눈에\s*들|보인다|발견|서\s*있|기다리|알아보|쳐다보|다가오|인사)|(?:마주\s*친|마주\s*쳤|발견했|보였).{0,60}(?:사야카|소녀|그녀)/.test(visible);
-  if (!encounter) return false;
-  const explicitArrival = groundedPlayerMove(userText, nextPlayerLocation);
-  if (!explicitArrival) return false;
-  if (nextPlayerLocation === previousPlayerLocation) return false;
-  if (!sameSpecificPlace(nextPlayerLocation, sayakaLocation)) return false;
-  // Sayaka must have a visible appearance, not only a voice from afar.
-  return visible.length > 0 && !/전화|문자|스피커|무전기/.test(spoken);
+  if (!encounter || /전화|문자|스피커|무전기/.test(spoken)) return false;
+  const arrival = nextPlayerLocation !== previousPlayerLocation
+    && groundedPlayerMove(userText, nextPlayerLocation)
+    && sameSpecificPlace(nextPlayerLocation, sayakaLocation)
+    // Merely standing outside a room does not reveal everything inside it.
+    && !(/(?:문\s*앞|입구)/.test(nextPlayerLocation) && /(?:매점|실내|안쪽|내부)/.test(sayakaLocation));
+  const sightline = playerOpensSightline(userText, sayakaLocation, previousPlayerLocation);
+  return arrival || sightline;
 }
