@@ -210,6 +210,14 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
   // 9) Preserve the lively back-and-forth rhythm of the original plugin without forcing verbosity.
   const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   if (pluginFidelity) {
+    // Korean-output character roleplay: reject accidental kana inserted
+    // between otherwise Korean words, e.g. "로봇은そこ에 두지 마".
+    if (/[\u3040-\u30ff]/.test(dialogue) && !/[\u3040-\u30ff]/.test(user)) {
+      issues.push({
+        code: "mixed_japanese_dialogue", severity: "retry",
+        fix: "사야카의 실제 대사는 자연스러운 한국어 반말로만 적는다. 사용자 입력에 없는 히라가나·가타카나를 한국어 대사에 섞지 않는다.",
+      });
+    }
     const visibility = checkVisibility(ctx, turn, segments);
     if (visibility.leaks) {
       issues.push({
