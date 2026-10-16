@@ -41,6 +41,7 @@ interface AdminData {
 interface ChatView {
   chat: ChatSummary;
   messages: Message[];
+  settings?: { realTimeEnabled: boolean };
   admin?: AdminData;
 }
 interface Status {
@@ -160,6 +161,7 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
   const [drawer, setDrawer] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [timeOptionSaving, setTimeOptionSaving] = useState(false);
   const [stateOpen, setStateOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState<ChatSummary | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
@@ -289,6 +291,24 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
       setTimeout(() => taRef.current?.focus(), 50);
     } catch (e) {
       setError({ ...(e as HttpError).body, kind: "error" });
+    }
+  }
+
+  async function setRealTimeEnabled(enabled: boolean) {
+    if (!view || timeOptionSaving || sending) return;
+    const chatId = view.chat.id;
+    setTimeOptionSaving(true);
+    try {
+      const updated = await api<{ settings: { realTimeEnabled: boolean } }>(
+        `/api/chats/${chatId}`,
+        { method: "PATCH", body: { realTimeEnabled: enabled } },
+      );
+      setView((prev) => prev?.chat.id === chatId ? { ...prev, settings: updated.settings } : prev);
+    } catch (e) {
+      const err = e as HttpError;
+      setError({ ...err.body, kind: "error" });
+    } finally {
+      setTimeOptionSaving(false);
     }
   }
 
@@ -669,6 +689,33 @@ export function ChatApp({ role, openLocal }: { role: Role; openLocal: boolean })
               <dt>사용 한도</dt>
               <dd>{status ? `분당 ${status.limits.perMinute}회, 하루 ${status.limits.perDay}회` : ""}</dd>
             </dl>
+
+            <h4 className="set-h">이 대화방의 시간</h4>
+            {view ? (
+              <div className="set-row realtime-option">
+                <div className="realtime-description">
+                  <label htmlFor="realtime-mode-switch"><strong>현실 시간 반영</strong> <span className="realtime-beta">실험</span></label>
+                  <p className="fineprint">
+                    기본 OFF: 채팅을 쉬는 동안 현실 시간은 무시해요.
+                    ON: 다음 메시지를 보낼 때 실제 경과 시간만 AI에 알려줘요.
+                    아직 접속하지 않은 동안 자동으로 행동을 생성하지는 않아요.
+                  </p>
+                </div>
+                <input
+                  id="realtime-mode-switch"
+                  className="realtime-switch"
+                  type="checkbox"
+                  role="switch"
+                  checked={view.settings?.realTimeEnabled ?? false}
+                  aria-checked={view.settings?.realTimeEnabled ?? false}
+                  aria-label="이 대화방에서 현실 시간 반영"
+                  disabled={timeOptionSaving || sending}
+                  onChange={(e) => void setRealTimeEnabled(e.target.checked)}
+                />
+              </div>
+            ) : (
+              <p className="fineprint">대화방을 선택하면 이 방의 현실 시간 반영 여부를 설정할 수 있어요. 모든 방은 OFF로 시작해요.</p>
+            )}
 
             <h4 className="set-h">캐릭터와 지침</h4>
             {isAdmin ? (
