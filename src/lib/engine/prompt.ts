@@ -2,6 +2,7 @@ import { PROMPT_VERSION } from "./canon";
 import { STABLE_INSTRUCTIONS_V020 } from "./prompt-v020";
 import { STABLE_INSTRUCTIONS_PLUGIN_V020 } from "./prompt-plugin-v020";
 import { FULL_PRIVATE_CANON } from "./private-canon";
+import { VOICE_INSTRUCTIONS, voicePatternNotes } from "./voice";
 import type { SelectedLore } from "./lore";
 import type { PatternReport } from "./patterns";
 import type { Emotion, HistoryMessage, ItemId, ItemLocation, MemoryEntry, RelationshipState, SceneState, TurnContext } from "./types";
@@ -93,7 +94,7 @@ export function selectStableInstructions(promptVersion?: string): string {
  */
 export function selectRuntimeInstructions(promptVersion?: string): string {
   const behavioral = selectStableInstructions(promptVersion);
-  if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return behavioral + "\n\n" + FULL_PRIVATE_CANON;
+  if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return behavioral + "\n\n" + FULL_PRIVATE_CANON + "\n\n" + VOICE_INSTRUCTIONS;
   return behavioral;
 }
 
@@ -256,6 +257,10 @@ export function buildPrompt(params: {
   const lb = loreBlock(lore);
   if (lb) dyn.push(lb);
   if (patterns.notes.length) dyn.push(["# 최근 패턴 점검", ...patterns.notes.map((n) => `- ${n}`)].join("\n"));
+  if (pluginFidelity) {
+    const voiceNotes = voicePatternNotes(ctx.history);
+    if (voiceNotes.length) dyn.push(["# 대사 어조 점검 (글자 수나 감탄사를 강제하지 않음)", ...voiceNotes.map((n) => `- ${n}`)].join("\n"));
+  }
   if (correctionNotes && correctionNotes.length) {
     dyn.push(
       [
