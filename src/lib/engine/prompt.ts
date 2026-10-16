@@ -256,20 +256,20 @@ export function buildPrompt(params: {
     const sayakaPlace = getOffscreen(ctx.scene).location || ctx.scene.sayaka.position;
     const openSightline = playerOpensSightline(ctx.userText, sayakaPlace, ctx.scene.location);
     const sameRoom = arrived && sameSpecificPlace(authored, sayakaPlace);
-    const stillOutside = !!authored && /(?:문\\s*앞|입구)/.test(authored);
+    const stillOutside = !!authored && /(?:문\s*앞|입구)/.test(authored);
     if (arrived && stillOutside && !openSightline) {
-      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\\n"+
-        "- 방금 사용자 자신이 이동해 도착한 곳: "+authored+" (이전 저장 위치: "+ctx.scene.location+")\\n"+
-        "- 문 앞에 도착했지만 문을 열거나 안으로 들어간 것은 아니다. 사야카가 다른 장소 내부에 있더라도 아직 직접 보거나 목소리를 들을 수 없다.\\n"+
+      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\n"+
+        "- 방금 사용자 자신이 이동해 도착한 곳: "+authored+" (이전 저장 위치: "+ctx.scene.location+")\n"+
+        "- 문 앞에 도착했지만 문을 열거나 안으로 들어간 것은 아니다. 사야카가 다른 장소 내부에 있더라도 아직 직접 보거나 목소리를 들을 수 없다.\n"+
         "- scene_location은 "+authored+"로 기입하고, segments는 플레이어에게 보이는 문 앞·복도만 묘사한다. 사야카의 대사나 내부 행동은 절대 공개하지 않는다.");
     } else if (openSightline || (sameRoom && !stillOutside)) {
-      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\\n"+
-        "- 플레이어는 자기 행동으로 사야카의 현재 장소를 실제 관찰할 수 있다: "+sayakaPlace+"\\n"+
-        "- 이번 턴에 처음 마주친다면 현재 눈앞에서 보이는 사야카를 행동지문에 나타내거나 직접 대사로 응답할 수 있다. 실내로 순간이동했다고 단정하지 않는다.\\n"+
+      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\n"+
+        "- 플레이어는 자기 행동으로 사야카의 현재 장소를 실제 관찰할 수 있다: "+sayakaPlace+"\n"+
+        "- 이번 턴에 처음 마주친다면 현재 눈앞에서 보이는 사야카를 행동지문에 나타내거나 직접 대사로 응답할 수 있다. 실내로 순간이동했다고 단정하지 않는다.\n"+
         "- 지난 비공개 행동·구입 경위는 아직 공개되지 않은 사실이다. 현재 관찰되는 모습과 사야카가 말하기로 선택한 내용만 보여 준다.");
     } else if (arrived) {
-      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\\n"+
-        "- 플레이어 자신의 도착 위치: "+authored+" / 사야카 위치: 별도 장소. 두 사람의 만남을 강제하지 않는다.\\n"+
+      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\n"+
+        "- 플레이어 자신의 도착 위치: "+authored+" / 사야카 위치: 별도 장소. 두 사람의 만남을 강제하지 않는다.\n"+
         "- scene_location에는 플레이어 위치를 적되 사야카가 보이지 않으면 공개 segments에는 그녀의 원격 대사·행동을 쓰지 않는다.");
     }
   }
