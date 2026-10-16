@@ -44,7 +44,7 @@ export function analyzePatterns(history: HistoryMessage[], promptVersion?: strin
   const pluginFidelity = promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   if (pluginFidelity) {
     const staleFlowers = texts.filter((t) => /꽃병|꽃잎|꽃 쪽|꽃으로/.test(t) && /시선|돌린|살펴보|바라/.test(t)).length;
-    if (staleFlowers >= 2) notes.push("최근 꽃병이나 꽃으로 시선을 돌리는 행동이 반복됐다. 지금도 그 행동이 필요할까? 상대의 말·자기 행동에 따라 장면을 선택하되 꽃 자체를 금지하지 않는다.");
+    if (staleFlowers >= 2) notes.push("최근 같은 사물을 바라보는 묘사가 반복됐다. 지금도 그 행동이 필요할까? 상대의 말과 사야카 자신의 용무에 따라 행동을 결정하라. 특정 취향을 금지하거나 무조건 다른 사건을 만들 필요는 없다.");
     const atExit = texts.filter((t) => /출입구|교문|정문/.test(t) || /공원 (?:갈|가자|간다며|갈 거|갈거)/.test(t)).length;
     if (atExit >= 2) notes.push("최근에도 학교 출입구나 공원으로 가자고 반복했다. 아직 상대가 따라갔다는 사실은 없지만, 사야카 자신의 다음 행동을 실제로 진행하거나 마음을 바꾸거나 대화를 다르게 이어갈 수 있다. 동일한 재촉을 매번 반복하지 말라.");
     if (questionStreak >= 3) notes.push("최근 질문이 많았다. 이번에도 궁금한 게 있다면 물어봐도 좋다. 다만 무의미한 끝 질문을 자동으로 추가하지 않는다.");
