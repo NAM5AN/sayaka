@@ -116,8 +116,17 @@ export interface AutonomousActivity {
   idle_turns: number;
 }
 
+export interface RealTimeFlowSettings {
+  /** Disabled by default. This is a deferred catch-up hint, not a background agent. */
+  enabled: boolean;
+  /** Last successfully answered turn or time at which the user enabled this setting. */
+  anchor_at: string | null;
+}
+
 export interface SceneState {
   version: number;
+  /** Optional so chats created before this feature remain OFF without migration. */
+  real_time?: RealTimeFlowSettings;
   scenario: string;
   time_label: string;
   location: string;
