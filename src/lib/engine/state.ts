@@ -1,6 +1,6 @@
 import { DISCLOSABLE_IDS, LEAK_GUARDS, loreById } from "./canon";
 import { dialogueText, allText } from "./format";
-import { groundedSharedSceneMove, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
+import { groundedSharedSceneMove, groundedSayakaDeparture, sayakaActuallyReturned, userCatchesUpToSayaka, userForcesSayakaState } from "./scene";
 import { applyInitiative } from "./initiative";
 import type {
   ItemId,
@@ -130,14 +130,20 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   const quietUser = turn.user_move === "silence_or_watching" || turn.user_move === "action_only";
   const reacted = ["reply", "partial_reply", "refuse", "ask", "intervene", "leave"].includes(turn.action_intent);
   scene.sayaka.noticed_user = scene.sayaka.noticed_user || !quietUser || reacted;
+  const followsAfterDeparture = !ctx.scene.sayaka.present
+    && userCatchesUpToSayaka(ctx.userText, segments, ctx.scene.sayaka.position);
   if (turn.sayaka_present === "leaves") {
     scene.sayaka.present = false;
-    scene.sayaka.position = "자리를 떠남";
-  } else if (!scene.sayaka.present && sayakaActuallyReturned(segments)) {
-    // Deliberate return visible in the narrative; "stays" alone must
-    // never make a departed character teleport back into the room.
+    // Grounded last-known location can be used when the player later follows.
+    scene.sayaka.position = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity")
+      && groundedSayakaDeparture(turn.sayaka_position, segments)
+      ? turn.sayaka_position.slice(0, 60) : "자리를 떠남";
+  } else if (!scene.sayaka.present && (sayakaActuallyReturned(segments) || followsAfterDeparture)) {
+    // Only a narrated return or the player's own confirmed pursuit brings
+    // an offscreen character back into the shared scene.
     scene.sayaka.present = true;
-    if (!turn.sayaka_position) scene.sayaka.position = ctx.scene.location;
+    if (!turn.sayaka_position) scene.sayaka.position = followsAfterDeparture
+      ? ctx.scene.sayaka.position : ctx.scene.location;
   }
   if (turn.sayaka_position && scene.sayaka.present) scene.sayaka.position = turn.sayaka_position;
   if (turn.sayaka_goal) scene.sayaka.goal = turn.sayaka_goal;
@@ -164,7 +170,12 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   let confirmedSharedMove = false;
   const proposedLocation = turn.scene_location?.trim() ?? "";
   if (proposedLocation && proposedLocation !== ctx.scene.location) {
-    if (groundedSharedSceneMove(ctx.userText, proposedLocation, segments, turn.sayaka_position)) {
+    const knownPosition = ctx.scene.sayaka.position;
+    const reunitedAtNamedPlace = followsAfterDeparture &&
+      (proposedLocation.match(/[가-힣A-Za-z]{2,}/g) ?? [])
+        .some((word) => word.length > 2 && knownPosition.includes(word));
+    if (groundedSharedSceneMove(ctx.userText, proposedLocation, segments, turn.sayaka_position)
+      || reunitedAtNamedPlace) {
       scene.location = proposedLocation;
       scene.sayaka.position = turn.sayaka_position || proposedLocation;
       confirmedSharedMove = true;
