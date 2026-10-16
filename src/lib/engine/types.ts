@@ -27,6 +27,7 @@ export const ACTION_INTENTS = [
   "ignore",
   "observe",
   "intervene",
+  "initiate",
   "ask",
   "leave",
   "continue_task",
