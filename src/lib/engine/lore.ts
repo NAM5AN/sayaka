@@ -65,6 +65,18 @@ export interface LoreSelectionInput {
   promptVersion?: string;
 }
 
+/**
+ * A normal question about liking one's parents is not the same as a request
+ * for family business, identity, wealth or other protected background.
+ * Only used for the plugin-style roleplay branch.
+ */
+function asksOnlyAboutFamilyAffection(userText: string): boolean {
+  const s = userText.replace(/\s+/g, "");
+  if (!/(?:아빠|아버지|엄마|어머니|부모|부모님)/.test(s)) return false;
+  if (!/(?:좋아|사랑|친해|싫어|소중|정들|애정)/.test(s)) return false;
+  return !/(?:직업|무슨일|일해|무슨직|가문|조직|두목|사업|경호|돈|재산|재력|집안|비밀|실체|정체|이름|어디살|집크기)/.test(s);
+}
+
 /** 장면 자체가 주는 주제 (꽃병 앞이면 꽃 등) */
 function sceneTopics(scene: SceneState, pluginFidelity = false): string[] {
   const t: string[] = [];
@@ -137,6 +149,16 @@ export function selectLore(input: LoreSelectionInput): SelectedLore[] {
           break;
         }
         if (e.runtime.send === "gated_fact") {
+          // Love for one's parents can be conveyed without exposing their
+          // professions, names, private histories or hidden motivations.
+          if (pluginFidelity && (e.id === "family_father" || e.id === "family_mother") &&
+              asksOnlyAboutFamilyAffection(input.userText)) {
+            out.push({
+              id: e.id, tier: "B", mode: "projection", disclosable: false,
+              text: "부모를 좋아하냐는 단순한 감정 질문은 부모 직업이나 집안의 비밀을 묻는 것과 다르다. 사야카는 부모를 좋아하고 소중하게 여긴다. 초면이라도 기분에 따라 당연하다는 듯 짧게 대답하거나, 왜 그런 걸 묻냐며 틱틱댈 수 있다. 사적인 과거·직업·재산·가문 이야기는 공개하지 않는다.",
+            });
+            break;
+          }
           const min = e.runtime.min_trust ?? 5;
           if (input.relationship.trust >= min) {
             out.push({
