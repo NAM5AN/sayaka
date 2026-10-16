@@ -19,9 +19,10 @@ function versionPrompt(version: string) {
 
 describe("사야카 플러그인 지침·설정 전체 이식", () => {
   it("새 채팅은 승인 캐릭터 판단 헌장 + 전체 비공개 캐논 버전, 기존 채팅은 구 규칙 보존", () => {
-    expect(PROMPT_VERSION).toBe("web-0.1.0+plugin-v0.2.0-fidelity-fullcanon-voice-v2-autonomy-v1-offscreen-v1-actor-v1");
+    expect(PROMPT_VERSION).toBe("web-0.1.0+plugin-v0.2.0-fidelity-fullcanon-voice-v2-autonomy-v1-offscreen-v1-actor-v2");
     expect(selectStableInstructions(PROMPT_VERSION)).toBe(ACTOR_CONSTITUTION);
-    expect(selectStableInstructions(PROMPT_VERSION.replace("-actor-v1", ""))).toBe(STABLE_INSTRUCTIONS_PLUGIN_V020);
+    expect(selectStableInstructions(PROMPT_VERSION.replace("-actor-v2", ""))).toBe(STABLE_INSTRUCTIONS_PLUGIN_V020);
+    expect(selectStableInstructions(PROMPT_VERSION.replace("-actor-v2", "-actor-v1"))).toBe(ACTOR_CONSTITUTION);
     const p = versionPrompt(PROMPT_VERSION);
     expect(p.instructions).toContain(ACTOR_CONSTITUTION);
     expect(p.instructions).not.toContain(STABLE_INSTRUCTIONS_PLUGIN_V020);

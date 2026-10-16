@@ -6,7 +6,8 @@ import { FULL_PRIVATE_CANON } from "./private-canon";
 import { VOICE_INSTRUCTIONS, voicePatternNotes } from "./voice";
 import { realTimePromptBlock } from "./time-flow";
 import { OFFSCREEN_INSTRUCTIONS } from "./offscreen-prompt";
-import { offscreenStateBlock } from "./offscreen";
+import { offscreenStateBlock, getOffscreen } from "./offscreen";
+import { groundedPlayerMove, playerAuthoredDestination, playerOpensSightline, sameSpecificPlace } from "./scene";
 import { AUTONOMY_INSTRUCTIONS, initiativeStateBlock } from "./initiative-prompt";
 import type { SelectedLore } from "./lore";
 import type { PatternReport } from "./patterns";
@@ -88,7 +89,7 @@ export const STABLE_INSTRUCTIONS = `# 역할
 
 /** A/B comparison: new v0.2.0 chats use the original behavior tier; old v0.3.0 chats retain theirs. */
 export function selectStableInstructions(promptVersion?: string): string {
-  if (promptVersion?.includes("actor-v1")) return ACTOR_CONSTITUTION;
+  if (promptVersion?.includes("actor-v1") || promptVersion?.includes("actor-v2")) return ACTOR_CONSTITUTION;
   if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return STABLE_INSTRUCTIONS_PLUGIN_V020;
   if (promptVersion?.includes("v0.2.0")) return STABLE_INSTRUCTIONS_V020;
   return STABLE_INSTRUCTIONS;
@@ -247,6 +248,31 @@ export function buildPrompt(params: {
   if (omitted > 0) dyn.push(`(이전 대화 ${omitted}개는 원문 대신 아래 '이 대화방의 기억'으로 요약되어 있다.)`);
   const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   dyn.push(sceneBlock(ctx.scene, pluginFidelity, ctx.turnIndex));
+  // A player's already-completed action is observed BEFORE composing Sayaka's
+  // answer. The server commits the physical state only after safe validation.
+  if (ctx.promptVersion?.includes("actor-v2") && !ctx.scene.sayaka.present) {
+    const authored = playerAuthoredDestination(ctx.userText);
+    const arrived = authored && groundedPlayerMove(ctx.userText, authored);
+    const sayakaPlace = getOffscreen(ctx.scene).location || ctx.scene.sayaka.position;
+    const openSightline = playerOpensSightline(ctx.userText, sayakaPlace, ctx.scene.location);
+    const sameRoom = arrived && sameSpecificPlace(authored, sayakaPlace);
+    const stillOutside = !!authored && /(?:문\\s*앞|입구)/.test(authored);
+    if (arrived && stillOutside && !openSightline) {
+      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\\n"+
+        "- 방금 사용자 자신이 이동해 도착한 곳: "+authored+" (이전 저장 위치: "+ctx.scene.location+")\\n"+
+        "- 문 앞에 도착했지만 문을 열거나 안으로 들어간 것은 아니다. 사야카가 다른 장소 내부에 있더라도 아직 직접 보거나 목소리를 들을 수 없다.\\n"+
+        "- scene_location은 "+authored+"로 기입하고, segments는 플레이어에게 보이는 문 앞·복도만 묘사한다. 사야카의 대사나 내부 행동은 절대 공개하지 않는다.");
+    } else if (openSightline || (sameRoom && !stillOutside)) {
+      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\\n"+
+        "- 플레이어는 자기 행동으로 사야카의 현재 장소를 실제 관찰할 수 있다: "+sayakaPlace+"\\n"+
+        "- 이번 턴에 처음 마주친다면 현재 눈앞에서 보이는 사야카를 행동지문에 나타내거나 직접 대사로 응답할 수 있다. 실내로 순간이동했다고 단정하지 않는다.\\n"+
+        "- 지난 비공개 행동·구입 경위는 아직 공개되지 않은 사실이다. 현재 관찰되는 모습과 사야카가 말하기로 선택한 내용만 보여 준다.");
+    } else if (arrived) {
+      dyn.push("# 이번 턴에 이미 확정된 플레이어 시점\\n"+
+        "- 플레이어 자신의 도착 위치: "+authored+" / 사야카 위치: 별도 장소. 두 사람의 만남을 강제하지 않는다.\\n"+
+        "- scene_location에는 플레이어 위치를 적되 사야카가 보이지 않으면 공개 segments에는 그녀의 원격 대사·행동을 쓰지 않는다.");
+    }
+  }
   const realTimeHint = realTimePromptBlock(ctx.scene);
   if (realTimeHint) dyn.push(realTimeHint);
   if (pluginFidelity) dyn.push(initiativeStateBlock(ctx.scene));
@@ -265,7 +291,7 @@ export function buildPrompt(params: {
     "사야카가 지금 눈앞의 학생에게 느끼는 짜증·호기심·의심과 자신의 행동을 다시 선택한다. " +
     "교류의 여지는 질문뿐 아니라 참견·불평·사소한 행동과 선택에서 생긴다. 질문이나 사건의 숫자를 맞출 필요는 없다."
   );
-  if (ctx.promptVersion?.includes("actor-v1")) dyn.push(
+  if ((ctx.promptVersion?.includes("actor-v1") || ctx.promptVersion?.includes("actor-v2"))) dyn.push(
     "# 이번 턴의 인물 선택 점검\n사용자가 바라는 답변과 사야카 본인이 하고 싶은 일은 구별한다. " +
     "situation_read에는 실제 상황, sayaka_want에는 사야카 자신의 욕구를 적은 뒤 action_intent를 선택한다. " +
     "상대가 힘들어한다는 것을 알아도 달래야 할 의무는 없다. 자신이 진짜 걱정한다면 드물게 도울 수 있다. " +

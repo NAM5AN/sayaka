@@ -143,6 +143,8 @@ export function playerAuthoredDestination(userText: string): string | null {
   for (const action of playerActionClauses(userText)) {
     if (!COMPLETED_PLAYER_MOVE.test(action)) continue;
     if (/(?:도착하려다|가려고만|가고\s*싶)/.test(action)) continue;
+    const inside = action.match(/([가-힣A-Za-z0-9]{2,})\s*(?:안으로|안쪽으로|내부로|안에)\s*(?:발(?:을)?\s*들여|들어|걸어\s*들어|입장)/);
+    if (inside && locationAnchors(inside[1]).length) return inside[1];
     const doorway = action.match(/([가-힣A-Za-z0-9]{2,})\s*(?:문|출입문|입구)\s*앞에\s*(?:선다|섰|서서|도착)/);
     if (doorway) return doorway[1] + " 문 앞";
     const at = action.match(/([가-힣A-Za-z0-9]{2,})(?:에|으로|까지)\s*(?:도착(?:했|한다|해서|한)|들어(?:갔|간다|선다)|걸어(?:갔|가)|뛰어(?:갔|가))/);
@@ -183,12 +185,17 @@ export function groundedReunion(
   const spoken = segments.filter((s) => s.kind === "dialogue").map((s) => s.text).join(" ");
   const visible = segments.filter((s) => s.kind === "narration").map((s) => s.text).join(" ");
   const encounter = /(?:사야카|소녀|그녀).{0,90}(?:마주|눈에\s*들|보인다|발견|서\s*있|기다리|알아보|쳐다보|다가오|인사)|(?:마주\s*친|마주\s*쳤|발견했|보였).{0,60}(?:사야카|소녀|그녀)/.test(visible);
-  if (!encounter || /전화|문자|스피커|무전기/.test(spoken)) return false;
+  if (/전화|문자|스피커|무전기/.test(spoken)) return false;
   const arrival = nextPlayerLocation !== previousPlayerLocation
     && groundedPlayerMove(userText, nextPlayerLocation)
     && sameSpecificPlace(nextPlayerLocation, sayakaLocation)
     // Merely standing outside a room does not reveal everything inside it.
     && !(/(?:문\s*앞|입구)/.test(nextPlayerLocation) && /(?:매점|실내|안쪽|내부)/.test(sayakaLocation));
   const sightline = playerOpensSightline(userText, sayakaLocation, previousPlayerLocation);
-  return arrival || sightline;
+  // When the player can physically see the known location, Sayaka speaking
+  // is itself a directly witnessed encounter. No prose-format requirement
+  // to say "사야카가 서 있다" before a perfectly audible first sentence.
+  // Unverified long-distance audio still cannot become a reunion.
+  const groundedAccess = arrival || sightline;
+  return groundedAccess && (encounter || spoken.trim().length > 0);
 }
