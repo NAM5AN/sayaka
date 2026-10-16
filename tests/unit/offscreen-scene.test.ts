@@ -167,7 +167,7 @@ describe("비공개 행동과 소지품 갱신의 독립적인 근거 판정", (
     expect(checkPrivateEvent(ctx,draft,draft.segments).valid).toBe(false);
     const sanitized=sanitizePrivateInventory(draft);
     expect(sanitized.rejectedItems).toEqual(["근거 없는 목걸이"]);
-    expect(sanitized.turn.offscreen_event.carried_add).toEqual(["빵 봉지"]);
+    expect(sanitized.turn.offscreen_event?.carried_add).toEqual(["빵 봉지"]);
     expect(checkPrivateEvent(ctx,sanitized.turn,draft.segments).valid).toBe(true);
     const applied=applyTurn(ctx,sanitized.turn,draft.segments);
     expect(applied.privateEventAccepted).toBe(true);
