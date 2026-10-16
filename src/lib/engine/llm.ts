@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { createHash } from "node:crypto";
 import type { AppConfig } from "../config";
 import { turnJsonSchema } from "./schema";
 import type { BuiltPrompt } from "./prompt";
@@ -35,6 +36,12 @@ export class LlmError extends Error {
   }
 }
 
+/** Max 64 chars for Responses API prompt_cache_key. Hash version labels rather than
+ * truncating them, so suffix-only changes still get separate stable caches. */
+export function promptCacheKeyForVersion(version: string): string {
+  return "sayaka-" + createHash("sha256").update(version).digest("hex").slice(0, 24);
+}
+
 export function createOpenAiClient(cfg: AppConfig): LlmClient {
   if (!cfg.ai.apiKey || !cfg.ai.model) throw new Error("OpenAI 설정 없음");
   // SDK 자동 재시도는 끈다: 한 턴의 총 시간이 함수 제한(maxDuration)을 넘지 않게. 실패는 사용자가 같은 요청 ID 로 다시 보낸다.
@@ -57,7 +64,7 @@ export function createOpenAiClient(cfg: AppConfig): LlmClient {
           ...(cfg.ai.reasoningEffort ? { reasoning: { effort: cfg.ai.reasoningEffort as "low" } } : {}),
           ...(cfg.ai.temperature !== null ? { temperature: cfg.ai.temperature } : {}),
           safety_identifier: safetyId,
-          prompt_cache_key: `sayaka-${prompt.promptCacheVersion ?? PROMPT_VERSION}`,
+          prompt_cache_key: promptCacheKeyForVersion(prompt.promptCacheVersion ?? PROMPT_VERSION),
         });
 
         for (const item of resp.output ?? []) {
