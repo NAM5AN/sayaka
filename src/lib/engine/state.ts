@@ -151,7 +151,7 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
       scene.location = proposedLocation;
       playerMovedAlone = ctx.scene.sayaka.present;
     } else {
-      corrections.push("플레이어 장소 변경 거부: 사용자의 실제 이동 근거가 없음");
+      corrections.push("공유 장소 변경 거부: 플레이어의 실제 이동 근거가 없음");
     }
   }
 
