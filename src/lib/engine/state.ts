@@ -1,6 +1,7 @@
 import { DISCLOSABLE_IDS, LEAK_GUARDS, loreById } from "./canon";
 import { dialogueText, allText } from "./format";
-import { groundedSharedSceneMove, groundedSayakaDeparture, sayakaActuallyReturned, userCatchesUpToSayaka, userForcesSayakaState } from "./scene";
+import { groundedSharedSceneMove, groundedPlayerMove, groundedReunion, groundedSayakaDeparture, sameSpecificPlace, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
+import { applyPrivateEvent, getOffscreen, willReunite } from "./offscreen";
 import { applyInitiative } from "./initiative";
 import type {
   ItemId,
@@ -34,6 +35,7 @@ export interface ApplyResult {
   newDisclosures: string[];
   corrections: string[];
   initiativeProgressed?: boolean;
+  privateEventAccepted?: boolean;
 }
 
 const ALLOWED_LOCATIONS: Record<ItemId, ItemLocation[]> = {
@@ -123,65 +125,107 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   const rel: RelationshipState = structuredClone(ctx.relationship);
   const t = ctx.turnIndex;
 
-  // --- 장면: 사야카 ---
+  // --- 두 인물의 위치와 사야카의 비공개 생활 ---
+  const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
   scene.version += 1;
   scene.sayaka.emotion = turn.emotion;
-  // 조용히 지켜보기만 했고 사야카도 반응하지 않았다면 아직 못 알아챘을 수 있다
+  const privateResult = pluginFidelity
+    ? applyPrivateEvent(ctx, turn, segments)
+    : { state: getOffscreen(ctx.scene), accepted: false, correction: null };
+  if (privateResult.correction) corrections.push("비공개 행동 상태 불일치: " + privateResult.correction);
+  scene.sayaka.offscreen = privateResult.state;
+  const privateEvidence = privateResult.accepted
+    ? [{ kind: "narration" as const, text: turn.offscreen_event!.action }]
+    : [];
+  const actionEvidence = [...segments, ...privateEvidence];
+
+  // Player-owned location never changes because Sayaka alone left.
+  // Independent movement by the player can separate the two characters.
+  let confirmedSharedMove = false;
+  let playerMovedAlone = false;
+  const proposedLocation = turn.scene_location?.trim() ?? "";
+  if (proposedLocation && proposedLocation !== ctx.scene.location) {
+    const shared = ctx.scene.sayaka.present
+      && groundedSharedSceneMove(ctx.userText, proposedLocation, segments, turn.sayaka_position);
+    if (shared) {
+      scene.location = proposedLocation;
+      confirmedSharedMove = true;
+    } else if (pluginFidelity && groundedPlayerMove(ctx.userText, proposedLocation)) {
+      scene.location = proposedLocation;
+      playerMovedAlone = ctx.scene.sayaka.present;
+    } else {
+      corrections.push("플레이어 장소 변경 거부: 사용자의 실제 이동 근거가 없음");
+    }
+  }
+
+  const reunited = pluginFidelity && !ctx.scene.sayaka.present
+    && turn.sayaka_present !== "leaves"
+    && (willReunite(ctx, turn, segments) || sayakaActuallyReturned(segments));
+  const reacted = ["reply", "partial_reply", "refuse", "ask", "initiate", "intervene", "leave"].includes(turn.action_intent);
   const quietUser = turn.user_move === "silence_or_watching" || turn.user_move === "action_only";
-  const reacted = ["reply", "partial_reply", "refuse", "ask", "intervene", "leave"].includes(turn.action_intent);
   scene.sayaka.noticed_user = scene.sayaka.noticed_user || !quietUser || reacted;
-  const followsAfterDeparture = !ctx.scene.sayaka.present
-    && userCatchesUpToSayaka(ctx.userText, segments, ctx.scene.sayaka.position);
+
   if (turn.sayaka_present === "leaves") {
     scene.sayaka.present = false;
-    // Grounded last-known location can be used when the player later follows.
-    scene.sayaka.position = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity")
-      && groundedSayakaDeparture(turn.sayaka_position, segments)
-      ? turn.sayaka_position.slice(0, 60) : "자리를 떠남";
-  } else if (!scene.sayaka.present && (sayakaActuallyReturned(segments) || followsAfterDeparture)) {
-    // Only a narrated return or the player's own confirmed pursuit brings
-    // an offscreen character back into the shared scene.
+    const departure = groundedSayakaDeparture(turn.sayaka_position, segments)
+      ? turn.sayaka_position.trim().slice(0, 60) : "";
+    if (privateResult.accepted && privateResult.state.location) {
+      scene.sayaka.position = privateResult.state.location;
+    } else if (departure) {
+      scene.sayaka.position = departure;
+      scene.sayaka.offscreen.location = departure;
+    } else if (ctx.scene.sayaka.present) {
+      // Keep a last-known position rather than erasing it forever.
+      scene.sayaka.position = "자리를 떠남";
+      if (!scene.sayaka.offscreen.location) scene.sayaka.offscreen.location = departure;
+    } else {
+      scene.sayaka.position = ctx.scene.sayaka.position;
+    }
+  } else if (reunited) {
     scene.sayaka.present = true;
-    if (!turn.sayaka_position) scene.sayaka.position = followsAfterDeparture
-      ? ctx.scene.sayaka.position : ctx.scene.location;
+    scene.sayaka.position = turn.sayaka_position || scene.location;
+    scene.sayaka.offscreen.location = scene.sayaka.position;
+    // Private events remain internal; only newly visible props may be
+    // depicted in the current response.
+  } else if (playerMovedAlone) {
+    scene.sayaka.present = false;
+    const whereSheStayed = ctx.scene.sayaka.position || ctx.scene.location;
+    scene.sayaka.position = whereSheStayed;
+    scene.sayaka.offscreen.location = ctx.scene.location;
+  } else if (ctx.scene.sayaka.present) {
+    scene.sayaka.present = true;
+    if (turn.sayaka_position) scene.sayaka.position = turn.sayaka_position;
+  } else {
+    scene.sayaka.present = false;
+    // Model-authored public position updates are never accepted in absent
+    // scenes. Only a verified private action can move Sayaka independently.
+    if (privateResult.accepted && privateResult.state.location) {
+      scene.sayaka.position = privateResult.state.location;
+    }
   }
-  if (turn.sayaka_position && scene.sayaka.present) scene.sayaka.position = turn.sayaka_position;
+
   if (turn.sayaka_goal) scene.sayaka.goal = turn.sayaka_goal;
-  else if (ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") && turn.action_intent !== "continue_task" && turn.sayaka_want.trim()) {
+  else if (pluginFidelity && turn.action_intent !== "continue_task" && turn.sayaka_want.trim()) {
     scene.sayaka.goal = turn.sayaka_want.trim().slice(0, 80);
   }
-  const narr = segments.filter((s) => s.kind === "narration").map((s) => s.text);
-  if (narr.length) scene.sayaka.current_action = narr[narr.length - 1].slice(0, 120);
-  else if (ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") && dialogueText(segments).trim() && turn.action_intent !== "continue_task") {
+  const narr = segments.filter((seg) => seg.kind === "narration").map((seg) => seg.text);
+  if (privateResult.accepted && !scene.sayaka.present) {
+    scene.sayaka.current_action = turn.offscreen_event!.action.slice(0, 120);
+  } else if (scene.sayaka.present && narr.length) {
+    scene.sayaka.current_action = narr[narr.length - 1].slice(0, 120);
+  } else if (scene.sayaka.present && pluginFidelity && dialogueText(segments).trim() && turn.action_intent !== "continue_task") {
     scene.sayaka.current_action = "상대에게 말을 건넸다";
   }
 
   let initiativeProgressed = false;
-  if (ctx.promptVersion?.includes("plugin-v0.2.0-fidelity")) {
-    const initiative = applyInitiative(ctx, turn.initiative, segments);
+  if (pluginFidelity) {
+    const initiative = applyInitiative(ctx, turn.initiative, actionEvidence);
     scene.sayaka.activity = initiative.activity;
     scene.sayaka.last_activity_outcome = initiative.lastOutcome;
     initiativeProgressed = initiative.progressed;
     corrections.push(...initiative.corrections);
     if (initiative.activity) scene.sayaka.goal = initiative.activity.objective;
     else if (initiative.progressed) scene.sayaka.goal = "현재 진행 중인 장기 목표 없음";
-  }
-
-  let confirmedSharedMove = false;
-  const proposedLocation = turn.scene_location?.trim() ?? "";
-  if (proposedLocation && proposedLocation !== ctx.scene.location) {
-    const knownPosition = ctx.scene.sayaka.position;
-    const reunitedAtNamedPlace = followsAfterDeparture &&
-      (proposedLocation.match(/[가-힣A-Za-z]{2,}/g) ?? [])
-        .some((word) => word.length >= 2 && !["학교", "근처", "동네", "주변", "앞쪽"].includes(word) && knownPosition.includes(word));
-    if (groundedSharedSceneMove(ctx.userText, proposedLocation, segments, turn.sayaka_position)
-      || reunitedAtNamedPlace) {
-      scene.location = proposedLocation;
-      scene.sayaka.position = turn.sayaka_position || proposedLocation;
-      confirmedSharedMove = true;
-    } else {
-      corrections.push("공유 장소 변경 거부: 상대와 사야카의 실제 동행·도착 근거가 없음");
-    }
   }
 
   // --- 장면: 킨차쿠 열림 ---
