@@ -1,6 +1,7 @@
 import { LEAK_GUARDS, LORE, loreById } from "./canon";
 import { allText, dialogueText } from "./format";
 import { overlyTeacherlyReply } from "./voice";
+import { isProvoked } from "./interaction";
 import { checkInitiative } from "./initiative";
 import { checkPrivateEvent, checkVisibility } from "./offscreen";
 import type { ModelTurn, Segment, TurnContext, ValidationIssue } from "./types";
@@ -12,7 +13,6 @@ import type { ModelTurn, Segment, TurnContext, ValidationIssue } from "./types";
  *  - log   : 진단용 기록
  */
 
-const PROVOCATION_MOVES = new Set(["tease", "provocation", "command"]);
 
 const THREAT_RE = /죽여|죽을래|죽고\s?싶|패\s?버|한\s?대\s?맞|때려\s?(?:줄|버)|부숴\s?버|죽었어|가만\s?안\s?둬/;
 // 지문에서 '상대'의 내면·행동을 확정하는 표현 (사야카의 시도와 구분)
@@ -67,6 +67,17 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
     return issues;
   }
   if (hadSpeakerLabel) issues.push({ code: "speaker_label", severity: "log", fix: "'사야카:' 같은 이름표를 붙이지 않는다." });
+
+  // State proposals must not contradict an observable independent departure.
+  // An inconsistent scene cannot safely be persisted after retries.
+  const saidGoodbyeAndLeft = turn.action_intent === "leave"
+    && /(?:사야카|그녀|소녀).{0,110}(?:걸어|떠나|사라지|나가|돌아서|발걸음|복도\s*끝|모퉁이)/.test(narration);
+  if (saidGoodbyeAndLeft && turn.sayaka_present === "stays") {
+    issues.push({
+      code: "scene_exit_mismatch", severity: "block",
+      fix: "사야카가 실제로 자리를 떠난 대사·지문을 보여 줬다면 sayaka_present=leaves로 기록한다. 떠난 적이 없으면 퇴장하는 것처럼 서술하지 않는다.",
+    });
+  }
 
   // 1) 메타·제작자 정보 누출 (상대가 먼저 그 말을 한 경우의 단순 되묻기는 허용)
   const meta = includesAny(text, LEAK_GUARDS.meta_terms).filter((t) => !user.includes(t));
@@ -183,20 +194,14 @@ export function validateTurn({ ctx, turn, segments, hadSpeakerLabel }: ValidateI
   }
 
   // 8) 근거 없는 분노·위협
-  const recentProvocations = ctx.history
-    .filter((m) => m.role === "user")
-    .slice(-3)
-    .some((m) => /꼬맹|꼬마|바보|멍청|못생|짜증|닥쳐|꺼져|만만|약올|놀리/.test(m.body));
-  const forcedContact = /(?:붙잡|끌어|끌고|밀치|밀어붙|때리|때렸|때린|뺨|발로\s*차|넘어뜨|후려|주먹|강제로|억지로\s*끌)/.test(user)
-    || ctx.history.filter((m) => m.role === "user").slice(-2)
-      .some((m) => /(?:붙잡|끌어|밀치|때리|뺨|발로\s*차)/.test(m.body));
-  const provoked = PROVOCATION_MOVES.has(turn.user_move) || recentProvocations
-    || forcedContact || ctx.relationship.annoyance >= 3;
+  // Player-authored boundary crossing is a real provocation even if
+  // a model classifies the message as an ordinary physical action.
+  const provoked = isProvoked(ctx, turn.user_move);
   if (turn.emotion === "angry" && !provoked) {
     issues.push({
       code: "unprovoked_anger",
       severity: "retry",
-      fix: "평범한 말에 격하게 화내지 않는다. 기본은 조용한 무심함이다. 귀찮음·짧은 대꾸·무시 정도로 충분하다.",
+      fix: "지금 상대가 실제로 사야카의 경계나 존엄을 침범했는지 먼저 확인한다. 그런 사건이 없다면 격한 분노 대신 무심함·가벼운 불친절로 표현한다.",
     });
   }
   if (THREAT_RE.test(dialogue)) {

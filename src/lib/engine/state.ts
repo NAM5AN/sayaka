@@ -1,6 +1,6 @@
 import { DISCLOSABLE_IDS, LEAK_GUARDS, loreById } from "./canon";
 import { dialogueText, allText } from "./format";
-import { groundedSharedSceneMove, groundedPlayerMove, groundedSayakaDeparture, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
+import { groundedSharedSceneMove, groundedPlayerMove, groundedSayakaDeparture, sayakaActuallyReturned, userForcesSayakaState , playerAuthoredDestination } from "./scene";
 import { applyPrivateEvent, getOffscreen, willReunite } from "./offscreen";
 import { applyInitiative } from "./initiative";
 import type {
@@ -63,8 +63,8 @@ function stageFor(rel: RelationshipState, turnIndex: number, pluginFidelity: boo
   if (rel.trust >= 2) return "friendly";
   // The plugin-fidelity branch never upgrades familiarity merely from turn count.
   // A known name or a witnessed relaxation of boundaries is an actual event.
-  const witnessedConnection = rel.user_name !== null
-    || rel.history.some((event) => event.axis === "wariness" && event.delta < 0);
+  // Remembering a self-introduced name is not equivalent to acquaintance.
+  const witnessedConnection = rel.history.some((event) => event.axis === "wariness" && event.delta < 0);
   if (rel.trust >= 1 || (pluginFidelity ? witnessedConnection : turnIndex >= 8)) return "acquainted";
   return "strangers";
 }
@@ -140,7 +140,10 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   // Independent movement by the player can separate the two characters.
   let confirmedSharedMove = false;
   let playerMovedAlone = false;
-  const proposedLocation = turn.scene_location?.trim() ?? "";
+  // A model can omit scene_location. A completed, player-authored arrival
+  // still changes the player's own viewpoint when the destination is explicit.
+  const proposedLocation = turn.scene_location?.trim()
+    || (pluginFidelity ? playerAuthoredDestination(ctx.userText) : null) || "";
   if (proposedLocation && proposedLocation !== ctx.scene.location) {
     const shared = ctx.scene.sayaka.present
       && groundedSharedSceneMove(ctx.userText, proposedLocation, segments, turn.sayaka_position);

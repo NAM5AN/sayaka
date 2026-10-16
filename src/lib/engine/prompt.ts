@@ -1,6 +1,7 @@
 import { PROMPT_VERSION } from "./canon";
 import { STABLE_INSTRUCTIONS_V020 } from "./prompt-v020";
 import { STABLE_INSTRUCTIONS_PLUGIN_V020 } from "./prompt-plugin-v020";
+import { ACTOR_CONSTITUTION } from "./actor-constitution";
 import { FULL_PRIVATE_CANON } from "./private-canon";
 import { VOICE_INSTRUCTIONS, voicePatternNotes } from "./voice";
 import { realTimePromptBlock } from "./time-flow";
@@ -87,6 +88,7 @@ export const STABLE_INSTRUCTIONS = `# 역할
 
 /** A/B comparison: new v0.2.0 chats use the original behavior tier; old v0.3.0 chats retain theirs. */
 export function selectStableInstructions(promptVersion?: string): string {
+  if (promptVersion?.includes("actor-v1")) return ACTOR_CONSTITUTION;
   if (promptVersion?.includes("plugin-v0.2.0-fidelity")) return STABLE_INSTRUCTIONS_PLUGIN_V020;
   if (promptVersion?.includes("v0.2.0")) return STABLE_INSTRUCTIONS_V020;
   return STABLE_INSTRUCTIONS;
@@ -262,6 +264,12 @@ export function buildPrompt(params: {
     "# 장면의 흐름\n직전 행동은 물리적 연속성을 위한 기록이지 같은 행동을 반복하라는 명령이 아니다. " +
     "사야카가 지금 눈앞의 학생에게 느끼는 짜증·호기심·의심과 자신의 행동을 다시 선택한다. " +
     "교류의 여지는 질문뿐 아니라 참견·불평·사소한 행동과 선택에서 생긴다. 질문이나 사건의 숫자를 맞출 필요는 없다."
+  );
+  if (ctx.promptVersion?.includes("actor-v1")) dyn.push(
+    "# 이번 턴의 인물 선택 점검\n사용자가 바라는 답변과 사야카 본인이 하고 싶은 일은 구별한다. " +
+    "situation_read에는 실제 상황, sayaka_want에는 사야카 자신의 욕구를 적은 뒤 action_intent를 선택한다. " +
+    "상대가 힘들어한다는 것을 알아도 달래야 할 의무는 없다. 자신이 진짜 걱정한다면 드물게 도울 수 있다. " +
+    "일상적인 질문과 긴 행동지문을 구분해서 읽으며 답변 분량은 상황에 따라 선택한다."
   );
   dyn.push(relationshipBlock(ctx.relationship, ctx.turnIndex, ctx.memories));
   dyn.push(memoryBlock(ctx.memories, disclosedTexts));
