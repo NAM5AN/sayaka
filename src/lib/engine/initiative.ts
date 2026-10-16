@@ -22,15 +22,30 @@ const norm = (s: string) => s.toLowerCase()
   .slice(0, 230);
 
 const PASSIVE = /(?:바라보|쳐다보|힐끗|시선을?\s*돌리|눈을?\s*돌리|고개를?\s*돌리|눈썹을?\s*찌푸리|미간을?\s*찌푸리|한숨|가만히|멍하니|몸을?\s*돌리)/;
-const ACT = /(?:걸어|걷|나서|나가|나왔|나오|다가가|달려|뛰어|들어가|들어오|건너|도착|문을?\s*(?:열|밀|닫)|손을?\s*(?:뻗|내밀)|꺼내|꺼냈|주웠|주워|집어|들어\s*올|끌어|밀어|옮기|치우|정리|챙기|가방을?\s*(?:메|들)|기다리다\s*말|건네|내려놓|내려\s*놓|꺼내\s*보|쥐었|잡아|찾아|찾았|적어|쓰|펼쳐|포장지를?\s*뜯|물(?:을)?\s*갈|물어\s*보)/;
+const ACT = /(?:걸어|걷|걸음(?:을)?\s*옮기|발(?:을)?\s*옮기|걸음을?\s*떼|나서|나가|나왔|나오|다가가|달려|뛰어|들어가|들어오|건너|도착|문을?\s*(?:열|밀|닫)|손을?\s*(?:뻗|내밀)|꺼내|꺼냈|주웠|주워|집어|들어\s*올|끌어|밀어|옮기|치우|정리|챙기|가방을?\s*(?:메|들)|기다리다\s*말|빵을?\s*고르|고르|진열대를?\s*살펴|확인|계산|샀|결제|건네|내려놓|내려\s*놓|꺼내\s*보|쥐었|잡아|찾아|찾았|적어|쓰|펼쳐|포장지를?\s*뜯|물(?:을)?\s*갈|물어\s*보)/;
 const INITIATIVE_SPEECH = /[?？]|(?:내가\s*(?:할|갈|가볼|찾아|해볼)|해볼래|갈래|가자|난\s*(?:갈|할)|알아볼게|해볼게|이리\s*와|따라오|잠깐만|먼저\s*갈|그거\s*봐|안\s*해|그만둘래)/;
-const DONE = /(?:도착|다\s*했|끝냈|끝났|마쳤|찾았|해냈|챙겼|가져왔|들어왔|건넸|꺼냈|알았어|이제\s*알겠|됐다|완성|찾았다|물(?:을)?\s*갈았|정리했|성공했)/;
+const DONE = /(?:도착|다\s*했|끝냈|끝났|마쳤|마친|찾았|해냈|챙겼|가져왔|들어왔|건넸|꺼냈|알았어|이제\s*알겠|됐다|완성|찾았다|물(?:을)?\s*갈았|정리했|성공했|샀(?:다|고|어|음)?|사\s*왔|구매했|결제했|계산(?:을)?\s*(?:마친|끝낸|했|완료)|다\s*골랐)/;
 const CANCEL = /(?:안\s*해|못\s*하겠|싫어|됐어|그만|접겠|안\s*가|관두|포기|마음\s*바뀌|그거\s*말고|됐거든)/;
 
 function matchingSegment(proposal: InitiativeProposal, segments: Segment[]): Segment | undefined {
   const e = norm(proposal.evidence);
   if (e.length < 3) return undefined;
-  return segments.find((s) => norm(s.text).includes(e));
+  const exact = segments.find((s) => norm(s.text).includes(e));
+  if (exact) return exact;
+  // Some generated evidence paraphrases one visible action. Permit a narrow
+  // overlap when the same actor and concrete action nouns appear; never
+  // fabricate an event solely because the model wrote an internal summary.
+  const nouns = (str: string) => (str.match(/[가-힣A-Za-z]{2,}/g) ?? [])
+    .map((w) => w.replace(/(?:에서|으로|에게|이를|들을|을|를|이|가|은|는|에|도|과|와|다|고|며|로)$/, ""))
+    .filter((w) => w.length >= 2 && !["사야카", "소녀", "그녀", "그곳", "상대", "이번", "다시"].includes(w));
+  const evidenceWords = new Set(nouns(proposal.evidence));
+  if (evidenceWords.size < 3) return undefined;
+  return segments.find((part) => {
+    if (part.kind !== "narration" && part.kind !== "dialogue") return false;
+    const words = new Set(nouns(part.text));
+    const shared = [...evidenceWords].filter((x) => words.has(x)).length;
+    return shared >= 3 && shared / evidenceWords.size >= 0.7;
+  });
 }
 
 function hasIndependentStep(seg: Segment, evidence: string): boolean {
