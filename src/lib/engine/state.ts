@@ -1,6 +1,6 @@
 import { DISCLOSABLE_IDS, LEAK_GUARDS, loreById } from "./canon";
 import { dialogueText, allText } from "./format";
-import { groundedSharedSceneMove, groundedPlayerMove, groundedReunion, groundedSayakaDeparture, sameSpecificPlace, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
+import { groundedSharedSceneMove, groundedPlayerMove, groundedSayakaDeparture, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
 import { applyPrivateEvent, getOffscreen, willReunite } from "./offscreen";
 import { applyInitiative } from "./initiative";
 import type {
@@ -64,10 +64,7 @@ function stageFor(rel: RelationshipState, turnIndex: number, pluginFidelity: boo
   // The plugin-fidelity branch never upgrades familiarity merely from turn count.
   // A known name or a witnessed relaxation of boundaries is an actual event.
   const witnessedConnection = rel.user_name !== null
-    || rel.history.some((event) =>
-      (event.axis === "wariness" && event.delta < 0) ||
-      (event.axis === "curiosity" && event.delta > 0)
-    );
+    || rel.history.some((event) => event.axis === "wariness" && event.delta < 0);
   if (rel.trust >= 1 || (pluginFidelity ? witnessedConnection : turnIndex >= 8)) return "acquainted";
   return "strangers";
 }
@@ -229,13 +226,19 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   }
 
   // --- 장면: 킨차쿠 열림 ---
-  if (turn.kinchaku_open === "opened") scene.kinchaku_open = true;
-  if (turn.kinchaku_open === "closed") scene.kinchaku_open = false;
+  if (scene.sayaka.present || privateResult.accepted) {
+    if (turn.kinchaku_open === "opened") scene.kinchaku_open = true;
+    if (turn.kinchaku_open === "closed") scene.kinchaku_open = false;
+  }
 
   // --- 장면: 물건 이동 (합법 전이만) ---
   const took = userTookSomething(ctx.userText);
   const gaveBack = userGaveBack(ctx.userText);
   for (const ch of turn.item_changes) {
+    if (!scene.sayaka.present && !privateResult.accepted) {
+      corrections.push(ch.item + ": 비공개 행동의 증거 없이 소지품 상태를 바꾸려 함");
+      continue;
+    }
     const before = scene.items[ch.item];
     if (!before) continue;
     let to = ch.location;
@@ -259,7 +262,7 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
         continue;
       }
     }
-    scene.items[ch.item] = { location: to, shown_to_user: before.shown_to_user || VISIBLE.includes(to) };
+    scene.items[ch.item] = { location: to, shown_to_user: before.shown_to_user || (scene.sayaka.present && VISIBLE.includes(to)) };
   }
   // 회중시계가 킨차쿠 밖으로 나오지 않았는데 킨차쿠가 닫히면 그대로, 시계를 다시 넣으면 OK
   // 상대가 '받았다'고 쓴 경우: 내밀어 둔 물건은 상대 소유로
@@ -337,6 +340,21 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
     const text = mc.text.trim();
     if (!text) continue;
     if (existingTexts.has(`${mc.kind}|${text}`)) continue;
+    // Nothing Sayaka did in another location becomes an *observed* event
+    // in the player's memory. These private facts live in scene.offscreen.
+    if (!scene.sayaka.present && mc.kind === "observed_event"
+      && /(?:사야카|그녀|소녀).{0,75}(?:갔|나갔|샀|골랐|계산|받았|만났|도착|살펴|들어갔|챙겼)/.test(text)) {
+      corrections.push("비공개 사건을 플레이어가 목격한 기억으로 저장하지 않음");
+      continue;
+    }
+    // Merely packing a bag or glancing aside rarely warrants permanent
+    // memory unless an actual relationship or plot event occurred.
+    if (mc.kind === "observed_event"
+      && /(?:상대|사용자|학생).{0,20}(?:가방을?s*챙|고개를?s*돌|잠깐s*앉|자리에s*앉|휴대폰을?s*확인)/.test(text)
+      && !/사야카와|함께|도와|나눠|돌려줬|넘어|다쳐|다툼|사과|밀치|때려/.test(text)) {
+      corrections.push("일상적인 순간 행동은 장기 사건 기억에서 제외");
+      continue;
+    }
     if (mc.kind === "user_claim") {
       if (!claimGrounded(mc, ctx.userText)) {
         corrections.push(`기억(user_claim) 거부: 이번 사용자 입력에 근거 없음 — ${text.slice(0, 40)}`);
@@ -420,5 +438,5 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   }
 
   rel.stage = stageFor(rel, t, ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false);
-  return { scene, relationship: rel, newMemories, deactivateMemoryIds, newDisclosures, corrections, initiativeProgressed };
+  return { scene, relationship: rel, newMemories, deactivateMemoryIds, newDisclosures, corrections, initiativeProgressed, privateEventAccepted: privateResult.accepted };
 }
