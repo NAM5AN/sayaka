@@ -1,6 +1,7 @@
 import { DISCLOSABLE_IDS, LEAK_GUARDS, loreById } from "./canon";
 import { dialogueText, allText } from "./format";
 import { groundedSharedSceneMove, sayakaActuallyReturned, userForcesSayakaState } from "./scene";
+import { applyInitiative } from "./initiative";
 import type {
   ItemId,
   ItemLocation,
@@ -32,6 +33,7 @@ export interface ApplyResult {
   deactivateMemoryIds: string[];
   newDisclosures: string[];
   corrections: string[];
+  initiativeProgressed?: boolean;
 }
 
 const ALLOWED_LOCATIONS: Record<ItemId, ItemLocation[]> = {
@@ -144,6 +146,20 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   }
   const narr = segments.filter((s) => s.kind === "narration").map((s) => s.text);
   if (narr.length) scene.sayaka.current_action = narr[narr.length - 1].slice(0, 120);
+  else if (ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") && dialogueText(segments).trim() && turn.action_intent !== "continue_task") {
+    scene.sayaka.current_action = "상대에게 말을 건넸다";
+  }
+
+  let initiativeProgressed = false;
+  if (ctx.promptVersion?.includes("plugin-v0.2.0-fidelity")) {
+    const initiative = applyInitiative(ctx, turn.initiative, segments);
+    scene.sayaka.activity = initiative.activity;
+    scene.sayaka.last_activity_outcome = initiative.lastOutcome;
+    initiativeProgressed = initiative.progressed;
+    corrections.push(...initiative.corrections);
+    if (initiative.activity) scene.sayaka.goal = initiative.activity.objective;
+    else if (initiative.progressed) scene.sayaka.goal = "현재 진행 중인 장기 목표 없음";
+  }
 
   let confirmedSharedMove = false;
   const proposedLocation = turn.scene_location?.trim() ?? "";
@@ -349,5 +365,5 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
   }
 
   rel.stage = stageFor(rel, t, ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false);
-  return { scene, relationship: rel, newMemories, deactivateMemoryIds, newDisclosures, corrections };
+  return { scene, relationship: rel, newMemories, deactivateMemoryIds, newDisclosures, corrections, initiativeProgressed };
 }
