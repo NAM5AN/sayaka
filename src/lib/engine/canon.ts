@@ -77,6 +77,7 @@ export function initialScene(opening: Opening): SceneState {
     version: 1,
     scenario: "first_meeting_after_school",
     time_label: "방과 후",
+    real_time: { enabled: false, anchor_at: null },
     location: "학교 복도",
     sayaka: {
       present: true,
