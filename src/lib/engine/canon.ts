@@ -82,6 +82,7 @@ export function initialScene(opening: Opening): SceneState {
     sayaka: {
       present: true,
       position: "창가 꽃병 앞",
+      offscreen: { location: "", carried: [], events: [] },
       goal: "꽃병과 꽃을 살펴본다",
       current_action: opening.scene.current_action,
       activity: null,
