@@ -13,7 +13,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:sql": "tsx scripts/write-schema-sql.ts",
     "eval:live": "tsx scripts/eval-live.ts",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "postbuild": "tsx scripts/qa-stage3-live.ts"
   },
   "engines": {
     "node": ">=20.9"
