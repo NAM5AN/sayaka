@@ -290,7 +290,6 @@ export function applyTurn(ctx: TurnContext, turn: ModelTurn, segments: Segment[]
       continue;
     }
     let delta = sig.direction === "up" ? 1 : -1;
-    const pluginFidelity = ctx.promptVersion?.includes("plugin-v0.2.0-fidelity") ?? false;
     if (pluginFidelity && userForcesSayakaState(ctx.userText) &&
       (sig.axis === "trust" || (sig.axis === "wariness" && delta < 0) || (sig.axis === "curiosity" && delta > 0))) {
       corrections.push("관계 변경 거부: 상대가 사야카의 감정·신뢰를 직접 지정한 입력");
