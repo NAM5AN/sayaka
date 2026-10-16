@@ -49,6 +49,7 @@ export function turn(over: Partial<ModelTurn> = {}): ModelTurn {
     sayaka_goal: "",
     initiative: { mode: "none", objective: "", next_step: "", evidence: "" },
     scene_location: "",
+    offscreen_event: { action: "", location: "", carried_add: [], carried_remove: [] },
     memory_candidates: [],
     disclosure_ids: [],
     relationship_signals: [],
